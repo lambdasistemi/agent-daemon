@@ -73,7 +73,7 @@ stop session_id:
 # Attach to a session terminal via WebSocket (Ctrl+C to detach)
 attach session_id:
     #!/usr/bin/env bash
-    cleanup() { stty sane 2>/dev/null; }
+    cleanup() { stty sane 2>/dev/null; clear; }
     trap 'cleanup; exit 0' INT TERM
     trap cleanup EXIT
     stty raw -echo isig
