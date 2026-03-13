@@ -133,8 +133,9 @@
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         return proto + '//' + window.location.host;
       }
+      const proto = s.startsWith('https') ? 'wss:' : 'ws:';
       const host = s.replace(/^https?:\/\//, '');
-      return 'ws://' + host;
+      return proto + '//' + host;
     }
 
     async function launch() {
