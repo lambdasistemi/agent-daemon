@@ -23,23 +23,31 @@ import System.Process
     , readProcess
     )
 
--- | Create a new detached tmux session.
+{- | Create a new detached tmux session.
+
+If a session with the same name already exists,
+succeeds without doing anything.
+-}
 createSession
     :: Text
     -- ^ session name
     -> FilePath
     -- ^ working directory
     -> IO (Either Text ())
-createSession name workDir =
-    runProcess
-        "tmux"
-        [ "new-session"
-        , "-d"
-        , "-s"
-        , T.unpack name
-        , "-c"
-        , workDir
-        ]
+createSession name workDir = do
+    exists <- hasSession name
+    if exists
+        then pure (Right ())
+        else
+            runProcess
+                "tmux"
+                [ "new-session"
+                , "-d"
+                , "-s"
+                , T.unpack name
+                , "-c"
+                , workDir
+                ]
 
 -- | Kill a tmux session by name.
 killSession
@@ -77,6 +85,17 @@ sendKeys name keys =
         , T.unpack keys
         , "Enter"
         ]
+
+-- | Check if a tmux session exists.
+hasSession :: Text -> IO Bool
+hasSession name = do
+    result <-
+        runProcess
+            "tmux"
+            ["has-session", "-t", T.unpack name]
+    pure $ case result of
+        Right () -> True
+        Left _ -> False
 
 -- | Run a process, capturing failures as 'Left'.
 runProcess :: FilePath -> [String] -> IO (Either Text ())
