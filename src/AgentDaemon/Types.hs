@@ -25,9 +25,14 @@ module AgentDaemon.Types
 
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Data.Aeson
-    ( FromJSON
-    , ToJSON
+    ( FromJSON (..)
+    , Options (..)
+    , ToJSON (..)
+    , defaultOptions
+    , genericParseJSON
+    , genericToJSON
     )
+import Data.Char (isAsciiUpper, toLower)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
@@ -48,7 +53,12 @@ data Repo = Repo
     -- ^ repository name
     }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+
+instance FromJSON Repo where
+    parseJSON = genericParseJSON stripPrefix
+
+instance ToJSON Repo where
+    toJSON = genericToJSON stripPrefix
 
 -- | Current state of an agent session.
 data SessionState
@@ -83,7 +93,9 @@ data Session = Session
     -- ^ creation timestamp
     }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (ToJSON)
+
+instance ToJSON Session where
+    toJSON = genericToJSON stripPrefix
 
 -- | Thread-safe session registry.
 newtype SessionManager = SessionManager
@@ -103,7 +115,9 @@ data LaunchRequest = LaunchRequest
     -- ^ issue number
     }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (FromJSON)
+
+instance FromJSON LaunchRequest where
+    parseJSON = genericParseJSON stripPrefix
 
 -- | Build a session ID from repo name and issue number.
 mkSessionId
@@ -137,3 +151,21 @@ mkWorktreePath baseDir Repo{repoName} issue =
         <> T.unpack repoName
         <> "-issue-"
         <> show issue
+
+{- | Aeson options that strip a camelCase prefix and
+lowercase the first letter of the remainder.
+
+@repoOwner@ becomes @owner@,
+@sessionCreatedAt@ becomes @createdAt@.
+-}
+stripPrefix :: Options
+stripPrefix =
+    defaultOptions
+        { fieldLabelModifier = dropPrefix
+        }
+  where
+    dropPrefix s =
+        case dropWhile (not . isUpper) s of
+            [] -> s
+            (c : cs) -> toLower c : cs
+    isUpper = isAsciiUpper
