@@ -13,6 +13,7 @@ module AgentDaemon.Worktree
 -- Each issue gets its own worktree branching from the
 -- repository's main branch.
 
+import Control.Exception (IOException, try)
 import Data.Text (Text)
 import Data.Text qualified as T
 import System.Process (callProcess)
@@ -25,27 +26,24 @@ createWorktree
     -- ^ worktree destination path
     -> Text
     -- ^ branch name
-    -> IO ()
+    -> IO (Either Text ())
 createWorktree repoPath worktreePath branch = do
-    callProcess
-        "git"
-        [ "-C"
-        , repoPath
-        , "fetch"
-        , "origin"
-        , "main"
-        ]
-    callProcess
-        "git"
-        [ "-C"
-        , repoPath
-        , "worktree"
-        , "add"
-        , worktreePath
-        , "-b"
-        , T.unpack branch
-        , "origin/main"
-        ]
+    fetchResult <-
+        runGit
+            repoPath
+            ["fetch", "origin", "main"]
+    case fetchResult of
+        Left e -> pure (Left e)
+        Right () ->
+            runGit
+                repoPath
+                [ "worktree"
+                , "add"
+                , worktreePath
+                , "-b"
+                , T.unpack branch
+                , "origin/main"
+                ]
 
 -- | Remove a git worktree.
 removeWorktree
@@ -53,14 +51,26 @@ removeWorktree
     -- ^ main repo path
     -> FilePath
     -- ^ worktree path to remove
-    -> IO ()
+    -> IO (Either Text ())
 removeWorktree repoPath worktreePath =
-    callProcess
-        "git"
-        [ "-C"
-        , repoPath
-        , "worktree"
+    runGit
+        repoPath
+        [ "worktree"
         , "remove"
         , "--force"
         , worktreePath
         ]
+
+-- | Run a git command, capturing failures as 'Left'.
+runGit :: FilePath -> [String] -> IO (Either Text ())
+runGit repoPath args = do
+    result <-
+        try (callProcess "git" ("-C" : repoPath : args))
+    pure $ case result of
+        Left e ->
+            Left $
+                "git "
+                    <> T.pack (unwords args)
+                    <> " failed: "
+                    <> T.pack (show (e :: IOException))
+        Right () -> Right ()

@@ -32,12 +32,17 @@ import Control.Concurrent.STM
     )
 import Data.Aeson qualified as Aeson
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (getCurrentTime)
 import Network.HTTP.Types
-    ( status200
+    ( ResponseHeaders
+    , status200
     , status201
+    , status400
     , status404
+    , status409
+    , status500
     )
 import Network.Wai
     ( Application
@@ -84,64 +89,101 @@ handleLaunch baseDir mgr req respond = do
     body <- strictRequestBody req
     case Aeson.decode body of
         Nothing ->
-            respond $
-                responseLBS status404 [] "Invalid request"
+            respondError status400 "Invalid request body"
         Just LaunchRequest{launchRepo, launchIssue} ->
             do
                 let sid =
                         mkSessionId
                             launchRepo
                             launchIssue
-                    tmuxName =
-                        mkTmuxName
-                            launchRepo
-                            launchIssue
-                    worktree =
-                        mkWorktreePath
-                            baseDir
-                            launchRepo
-                            launchIssue
-                now <- getCurrentTime
-                let session =
-                        Session
-                            { sessionId = sid
-                            , sessionRepo = launchRepo
-                            , sessionIssue = launchIssue
-                            , sessionWorktree = worktree
-                            , sessionTmuxName = tmuxName
-                            , sessionState = Creating
-                            , sessionCreatedAt = now
-                            }
-                atomically $ do
-                    m <- readTVar (sessions mgr)
-                    writeTVar (sessions mgr) $
-                        Map.insert sid session m
-                Worktree.createWorktree
-                    (repoPath baseDir launchRepo)
-                    worktree
-                    ( "feat/issue-"
-                        <> T.pack (show launchIssue)
-                    )
-                Tmux.createSession tmuxName worktree
-                Tmux.sendKeys tmuxName "claude"
-                atomically $ do
-                    m <- readTVar (sessions mgr)
-                    writeTVar (sessions mgr) $
-                        Map.adjust
-                            ( \s ->
-                                s{sessionState = Running}
+                existing <- readTVarIO (sessions mgr)
+                if Map.member sid existing
+                    then
+                        respondError
+                            status409
+                            ( "Session "
+                                <> unSessionId sid
+                                <> " already exists"
                             )
+                    else launchSession
+                            baseDir
+                            mgr
                             sid
-                            m
+                            launchRepo
+                            launchIssue
+  where
+    respondError status msg =
+        respond $
+            responseLBS
+                status
+                jsonHeaders
+                (Aeson.encode $ errorJson msg)
+
+    launchSession baseDir' mgr' sid repo issue = do
+        let tmuxName = mkTmuxName repo issue
+            worktree =
+                mkWorktreePath baseDir' repo issue
+        now <- getCurrentTime
+        let session =
+                Session
+                    { sessionId = sid
+                    , sessionRepo = repo
+                    , sessionIssue = issue
+                    , sessionWorktree = worktree
+                    , sessionTmuxName = tmuxName
+                    , sessionState = Creating
+                    , sessionCreatedAt = now
+                    }
+        atomically $ do
+            m <- readTVar (sessions mgr')
+            writeTVar (sessions mgr') $
+                Map.insert sid session m
+        result <- runLaunchSteps tmuxName worktree
+        case result of
+            Left reason -> do
+                setSessionState
+                    mgr'
+                    sid
+                    (Failed reason)
+                respond $
+                    responseLBS
+                        status500
+                        jsonHeaders
+                        (Aeson.encode $ errorJson reason)
+            Right () -> do
+                setSessionState mgr' sid Running
                 respond $
                     responseLBS
                         status201
-                        [
-                            ( "Content-Type"
-                            , "application/json"
-                            )
-                        ]
-                        (Aeson.encode session)
+                        jsonHeaders
+                        ( Aeson.encode
+                            session
+                                { sessionState =
+                                    Running
+                                }
+                        )
+      where
+        runLaunchSteps tmuxName' worktree' = do
+            wtResult <-
+                Worktree.createWorktree
+                    (repoPath baseDir' repo)
+                    worktree'
+                    ( "feat/issue-"
+                        <> T.pack (show issue)
+                    )
+            case wtResult of
+                Left e -> pure (Left e)
+                Right () -> do
+                    tmResult <-
+                        Tmux.createSession
+                            tmuxName'
+                            worktree'
+                    case tmResult of
+                        Left e -> pure (Left e)
+                        Right () ->
+                            Tmux.sendKeys
+                                tmuxName'
+                                "claude"
 
 -- | List all active sessions.
 handleList
@@ -152,7 +194,7 @@ handleList mgr _req respond = do
     respond $
         responseLBS
             status200
-            [("Content-Type", "application/json")]
+            jsonHeaders
             (Aeson.encode $ Map.elems m)
 
 -- | Stop a session and clean up resources.
@@ -168,16 +210,58 @@ handleStop baseDir mgr sid _req respond = do
             respond $
                 responseLBS
                     status404
-                    []
-                    "Session not found"
+                    jsonHeaders
+                    ( Aeson.encode $
+                        errorJson
+                            ( "Session "
+                                <> unSessionId sid
+                                <> " not found"
+                            )
+                    )
         Just session -> do
-            Tmux.killSession (sessionTmuxName session)
-            Worktree.removeWorktree
-                (repoPath baseDir (sessionRepo session))
-                (sessionWorktree session)
+            _ <-
+                Tmux.killSession
+                    (sessionTmuxName session)
+            _ <-
+                Worktree.removeWorktree
+                    ( repoPath
+                        baseDir
+                        (sessionRepo session)
+                    )
+                    (sessionWorktree session)
             atomically $ do
                 current <- readTVar (sessions mgr)
                 writeTVar (sessions mgr) $
                     Map.delete sid current
             respond $
-                responseLBS status200 [] "Stopped"
+                responseLBS
+                    status200
+                    jsonHeaders
+                    ( Aeson.encode $
+                        Aeson.object
+                            [ ( "status"
+                              , Aeson.String "stopped"
+                              )
+                            ]
+                    )
+
+-- | Update session state in the registry.
+setSessionState
+    :: SessionManager -> SessionId -> SessionState -> IO ()
+setSessionState mgr sid state =
+    atomically $ do
+        m <- readTVar (sessions mgr)
+        writeTVar (sessions mgr) $
+            Map.adjust
+                (\s -> s{sessionState = state})
+                sid
+                m
+
+-- | Build a JSON error object.
+errorJson :: Text -> Aeson.Value
+errorJson msg =
+    Aeson.object [("error", Aeson.String msg)]
+
+-- | Standard JSON content-type headers.
+jsonHeaders :: ResponseHeaders
+jsonHeaders = [("Content-Type", "application/json")]
