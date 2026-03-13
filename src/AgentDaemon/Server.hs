@@ -14,15 +14,18 @@ module AgentDaemon.Server
 import AgentDaemon.Api (apiApp)
 import AgentDaemon.Terminal (terminalApp)
 import AgentDaemon.Types (SessionManager)
+import Data.String (fromString)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Handler.WebSockets qualified as WaiWS
 import Network.WebSockets qualified as WS
 
--- | Start the server on the given port.
+-- | Start the server on the given host and port.
 startServer
-    :: Int
+    :: String
+    -- ^ host to bind to
+    -> Int
     -- ^ port number
     -> FilePath
     -- ^ base directory for worktrees
@@ -30,11 +33,18 @@ startServer
     -- ^ static files directory
     -> SessionManager
     -> IO ()
-startServer port baseDir staticDir mgr = do
+startServer host port baseDir staticDir mgr = do
     putStrLn $
-        "agent-daemon listening on port "
+        "agent-daemon listening on "
+            <> host
+            <> ":"
             <> show port
-    Warp.run port $
+    let settings =
+            Warp.setPort port $
+                Warp.setHost
+                    (fromString host)
+                    Warp.defaultSettings
+    Warp.runSettings settings $
         WaiWS.websocketsOr
             WS.defaultConnectionOptions
             wsApp

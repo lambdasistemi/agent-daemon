@@ -7,6 +7,12 @@ in
   options.services.agent-daemon = {
     enable = lib.mkEnableOption "agent-daemon";
 
+    host = lib.mkOption {
+      type = lib.types.str;
+      default = "*";
+      description = "Host to bind to (e.g. 127.0.0.1, *, or a tailscale IP).";
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 8080;
@@ -74,6 +80,7 @@ in
         WorkingDirectory = cfg.baseDir;
         ExecStart = lib.concatStringsSep " " [
           "${cfg.package}/bin/agent-daemon"
+          "--host ${cfg.host}"
           "--port ${toString cfg.port}"
           "--base-dir ${cfg.baseDir}"
           "--static-dir ${cfg.staticDir}"

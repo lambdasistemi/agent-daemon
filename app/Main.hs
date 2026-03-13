@@ -35,7 +35,9 @@ import Options.Applicative
 
 -- | CLI configuration.
 data Config = Config
-    { configPort :: Int
+    { configHost :: String
+    -- ^ host to bind to
+    , configPort :: Int
     -- ^ server port
     , configBaseDir :: FilePath
     -- ^ base directory for worktrees
@@ -47,7 +49,14 @@ data Config = Config
 configParser :: Parser Config
 configParser =
     Config
-        <$> option
+        <$> strOption
+            ( long "host"
+                <> help
+                    "Host to bind to"
+                <> showDefault
+                <> value "*"
+            )
+        <*> option
             auto
             ( long "port"
                 <> help "Port to listen on"
@@ -85,6 +94,7 @@ main = do
     mgr <- newSessionManager
     recoverSessions (configBaseDir config) mgr
     startServer
+        (configHost config)
         (configPort config)
         (configBaseDir config)
         (configStaticDir config)
