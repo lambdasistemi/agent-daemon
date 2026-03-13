@@ -2,14 +2,13 @@ module AgentDaemon.Recovery
     ( recoverSessions
     ) where
 
-{- | Module      : AgentDaemon.Recovery
-Description : Session recovery on daemon restart
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Discovers running tmux sessions and reconstructs the
-in-memory session registry from them.
--}
+-- \| Module      : AgentDaemon.Recovery
+-- Description : Session recovery on daemon restart
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Discovers running tmux sessions and reconstructs the
+-- in-memory session registry from them.
 
 import AgentDaemon.Types
     ( Repo (..)
@@ -44,15 +43,16 @@ recoverSessions
     -> IO ()
 recoverSessions baseDir mgr = do
     names <- listTmuxSessions
-    sessions <- mapM (recoverSession baseDir) names
+    results <- mapM (recoverSession baseDir) names
     let recovered =
             Map.fromList
                 [ (sessionId s, s)
-                | Just s <- sessions
+                | Just s <- results
                 ]
+        tvar = sessions mgr
     atomically $ do
-        m <- readTVar (sessions mgr)
-        writeTVar (sessions mgr) (Map.union m recovered)
+        m <- readTVar tvar
+        writeTVar tvar (Map.union m recovered)
     let n = Map.size recovered
     putStrLn $
         "Recovered "
