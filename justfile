@@ -44,7 +44,7 @@ CI:
 # Run the daemon
 serve *args:
     #!/usr/bin/env bash
-    cabal run agent-daemon -O0 -- {{args}}
+    nix run . -- {{args}}
 
 # --- Client recipes ---
 
