@@ -40,3 +40,32 @@ CI:
     just build
     fourmolu -m check src app
     hlint src app
+
+# --- Client recipes ---
+
+host := "localhost"
+port := "8080"
+base := "http://" + host + ":" + port
+
+# Launch a new agent session
+launch owner repo issue:
+    #!/usr/bin/env bash
+    curl -s -X POST "{{base}}/sessions" \
+      -H "Content-Type: application/json" \
+      -d '{"repo":{"owner":"{{owner}}","name":"{{repo}}"},"issue":{{issue}}}' \
+      | jq .
+
+# List all active sessions
+list:
+    #!/usr/bin/env bash
+    curl -s "{{base}}/sessions" | jq .
+
+# Stop a session and clean up
+stop session_id:
+    #!/usr/bin/env bash
+    curl -s -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
+
+# Attach to a session terminal via WebSocket
+attach session_id:
+    #!/usr/bin/env bash
+    websocat -b "ws://{{host}}:{{port}}/sessions/{{session_id}}/terminal"

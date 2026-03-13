@@ -21,13 +21,13 @@ let
         shellcheck
         stgit
         tmux
+        websocat
       ];
     };
   };
 in {
   packages = {
-    main =
-      project.hsPkgs.agent-daemon.components.exes.agent-daemon;
+    main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
   };
   devShells.default = project.shell;
 }
