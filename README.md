@@ -15,3 +15,10 @@ just CI
 ```bash
 agent-daemon --port 8080 --base-dir /code
 ```
+
+## Browser Client
+
+A web-based terminal client is available at
+https://lambdasistemi.github.io/agent-daemon/
+
+Enter your daemon's address in the server field to connect remotely (e.g. via Tailscale).
