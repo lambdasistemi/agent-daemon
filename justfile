@@ -55,7 +55,7 @@ base := "http://" + host + ":" + port
 # Launch a new agent session
 launch owner repo issue:
     #!/usr/bin/env bash
-    curl -sf -X POST "{{base}}/sessions" \
+    curl -sS -X POST "{{base}}/sessions" \
       -H "Content-Type: application/json" \
       -d '{"repo":{"owner":"{{owner}}","name":"{{repo}}"},"issue":{{issue}}}' \
       | jq .
@@ -63,12 +63,12 @@ launch owner repo issue:
 # List all active sessions
 list:
     #!/usr/bin/env bash
-    curl -sf "{{base}}/sessions" | jq .
+    curl -sS "{{base}}/sessions" | jq .
 
 # Stop a session and clean up
 stop session_id:
     #!/usr/bin/env bash
-    curl -sf -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
+    curl -sS -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
 
 # Attach to a session terminal via WebSocket
 attach session_id:
