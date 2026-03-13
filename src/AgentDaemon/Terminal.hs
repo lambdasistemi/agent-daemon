@@ -25,6 +25,7 @@ import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
 import Network.WebSockets qualified as WS
+import System.Environment (getEnvironment)
 import System.Posix.Pty
     ( Pty
     , readPty
@@ -41,9 +42,10 @@ terminalApp
     -> WS.ServerApp
 terminalApp sessionName pending = do
     conn <- WS.acceptRequest pending
+    env <- withTerm <$> getEnvironment
     (pty, _pid) <-
         spawnWithPty
-            Nothing
+            (Just env)
             True
             "tmux"
             ["attach", "-t", T.unpack sessionName]
@@ -104,6 +106,12 @@ parseResize bs = do
                 rows <- readDecimal rowsBS
                 Just (cols, rows)
             _ -> Nothing
+
+-- | Ensure TERM is set in the environment.
+withTerm :: [(String, String)] -> [(String, String)]
+withTerm env =
+    ("TERM", "xterm-256color")
+        : filter ((/= "TERM") . fst) env
 
 -- | Parse an ASCII decimal number from a ByteString.
 readDecimal :: BS.ByteString -> Maybe Int
