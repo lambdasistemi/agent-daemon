@@ -25,9 +25,14 @@ let
       ];
     };
   };
+  static = pkgs.runCommand "agent-daemon-static" { } ''
+    mkdir -p $out
+    cp -r ${./..}/static/* $out/
+  '';
 in {
   packages = {
     main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
+    inherit static;
   };
   devShells.default = project.shell;
 }

@@ -16,5 +16,8 @@
       in {
         packages = project.packages // { default = project.packages.main; };
         inherit (project) devShells;
-      });
+      })
+    // {
+      nixosModules.default = import ./nix/module.nix { inherit self; };
+    };
 }
