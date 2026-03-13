@@ -1,0 +1,27 @@
+site_name: Agent Daemon
+site_url: https://lambdasistemi.github.io/agent-daemon/docs/
+repo_url: https://github.com/lambdasistemi/agent-daemon
+repo_name: lambdasistemi/agent-daemon
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+
+nav:
+  - Home: index.md
+  - Design: design.md
+  - Deployment: deployment.md
+  - Tailscale HTTPS: tailscale.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - tables
+  - admonitions
