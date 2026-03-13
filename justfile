@@ -41,6 +41,11 @@ CI:
     fourmolu -m check src app
     hlint src app
 
+# Run the daemon
+serve *args:
+    #!/usr/bin/env bash
+    cabal run agent-daemon -O0 -- {{args}}
+
 # --- Client recipes ---
 
 host := "localhost"
@@ -50,7 +55,7 @@ base := "http://" + host + ":" + port
 # Launch a new agent session
 launch owner repo issue:
     #!/usr/bin/env bash
-    curl -s -X POST "{{base}}/sessions" \
+    curl -sf -X POST "{{base}}/sessions" \
       -H "Content-Type: application/json" \
       -d '{"repo":{"owner":"{{owner}}","name":"{{repo}}"},"issue":{{issue}}}' \
       | jq .
@@ -58,12 +63,12 @@ launch owner repo issue:
 # List all active sessions
 list:
     #!/usr/bin/env bash
-    curl -s "{{base}}/sessions" | jq .
+    curl -sf "{{base}}/sessions" | jq .
 
 # Stop a session and clean up
 stop session_id:
     #!/usr/bin/env bash
-    curl -s -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
+    curl -sf -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
 
 # Attach to a session terminal via WebSocket
 attach session_id:
