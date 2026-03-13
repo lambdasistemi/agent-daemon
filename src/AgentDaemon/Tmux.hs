@@ -15,6 +15,7 @@ module AgentDaemon.Tmux
 -- inside a named tmux session that persists across terminal
 -- disconnects.
 
+import Control.Exception (IOException, try)
 import Data.Text (Text)
 import Data.Text qualified as T
 import System.Process
@@ -28,9 +29,9 @@ createSession
     -- ^ session name
     -> FilePath
     -- ^ working directory
-    -> IO ()
+    -> IO (Either Text ())
 createSession name workDir =
-    callProcess
+    runProcess
         "tmux"
         [ "new-session"
         , "-d"
@@ -44,9 +45,9 @@ createSession name workDir =
 killSession
     :: Text
     -- ^ session name
-    -> IO ()
+    -> IO (Either Text ())
 killSession name =
-    callProcess
+    runProcess
         "tmux"
         ["kill-session", "-t", T.unpack name]
 
@@ -66,9 +67,9 @@ sendKeys
     -- ^ session name
     -> Text
     -- ^ keys to send
-    -> IO ()
+    -> IO (Either Text ())
 sendKeys name keys =
-    callProcess
+    runProcess
         "tmux"
         [ "send-keys"
         , "-t"
@@ -76,3 +77,15 @@ sendKeys name keys =
         , T.unpack keys
         , "Enter"
         ]
+
+-- | Run a process, capturing failures as 'Left'.
+runProcess :: FilePath -> [String] -> IO (Either Text ())
+runProcess cmd args = do
+    result <- try (callProcess cmd args)
+    pure $ case result of
+        Left e ->
+            Left $
+                T.pack cmd
+                    <> " failed: "
+                    <> T.pack (show (e :: IOException))
+        Right () -> Right ()
