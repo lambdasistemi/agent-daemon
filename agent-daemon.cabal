@@ -36,8 +36,10 @@ library
   build-depends:
     , aeson                >= 2.1   && < 2.3
     , base                 >= 4.18  && < 5
+    , bytestring           >= 0.11  && < 0.13
     , containers           >= 0.6   && < 0.8
     , http-types           >= 0.12  && < 0.13
+    , posix-pty            >= 0.2   && < 0.3
     , process              >= 1.6   && < 1.7
     , stm                  >= 2.5   && < 2.6
     , text                 >= 2.0   && < 2.2
