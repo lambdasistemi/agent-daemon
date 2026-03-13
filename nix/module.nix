@@ -42,17 +42,23 @@ in
       default = "agent-daemon";
       description = "Group to run the service as.";
     };
+
+    createUser = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Whether to create a dedicated system user and group. Disable when running as an existing user.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
-    users.users.${cfg.user} = {
+    users.users.${cfg.user} = lib.mkIf cfg.createUser {
       isSystemUser = true;
       group = cfg.group;
       home = cfg.baseDir;
       createHome = true;
     };
 
-    users.groups.${cfg.group} = { };
+    users.groups.${cfg.group} = lib.mkIf cfg.createUser { };
 
     systemd.services.agent-daemon = {
       description = "Agent daemon — Claude Code session manager";
