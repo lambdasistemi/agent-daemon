@@ -182,7 +182,11 @@ handleLaunch baseDir mgr req respond = do
                         Right () ->
                             Tmux.sendKeys
                                 tmuxName'
-                                "claude"
+                                ( "claude "
+                                    <> claudePrompt
+                                        repo
+                                        issue
+                                )
 
 -- | List all active sessions.
 handleList
@@ -265,3 +269,27 @@ errorJson msg =
 -- | Standard JSON content-type headers.
 jsonHeaders :: ResponseHeaders
 jsonHeaders = [("Content-Type", "application/json")]
+
+{- | Build the initial prompt for Claude.
+
+Tells Claude which issue to work on and how to load it.
+The prompt is shell-quoted to survive send-keys.
+-}
+claudePrompt :: Repo -> Int -> Text
+claudePrompt Repo{repoOwner, repoName} issue =
+    "'"
+        <> "Work on "
+        <> repoOwner
+        <> "/"
+        <> repoName
+        <> "#"
+        <> T.pack (show issue)
+        <> ". "
+        <> "Start by running: "
+        <> "gh issue view "
+        <> T.pack (show issue)
+        <> " -R "
+        <> repoOwner
+        <> "/"
+        <> repoName
+        <> "'"
