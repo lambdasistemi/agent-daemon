@@ -196,7 +196,7 @@ handleLaunch baseDir mgr req respond = do
                         Right () ->
                             Tmux.sendKeys
                                 tmuxName'
-                                ( "claude "
+                                ( "claude --dangerously-skip-permissions "
                                     <> claudePrompt
                                         repo
                                         issue
