@@ -41,7 +41,6 @@ import Network.HTTP.Types
     , status201
     , status400
     , status404
-    , status409
     , status500
     )
 import Network.Wai
@@ -97,15 +96,15 @@ handleLaunch baseDir mgr req respond = do
                             launchRepo
                             launchIssue
                 existing <- readTVarIO (sessions mgr)
-                if Map.member sid existing
-                    then
-                        respondError
-                            status409
-                            ( "Session "
-                                <> unSessionId sid
-                                <> " already exists"
-                            )
-                    else launchSession
+                case Map.lookup sid existing of
+                    Just session ->
+                        respond $
+                            responseLBS
+                                status200
+                                jsonHeaders
+                                (Aeson.encode session)
+                    Nothing ->
+                        launchSession
                             baseDir
                             mgr
                             sid
@@ -239,9 +238,10 @@ handleStop baseDir mgr sid _req respond = do
                     jsonHeaders
                     ( Aeson.encode $
                         Aeson.object
-                            [ ( "status"
-                              , Aeson.String "stopped"
-                              )
+                            [
+                                ( "status"
+                                , Aeson.String "stopped"
+                                )
                             ]
                     )
 
