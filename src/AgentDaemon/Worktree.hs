@@ -3,16 +3,15 @@ module AgentDaemon.Worktree
     , removeWorktree
     ) where
 
-{- |
-Module      : AgentDaemon.Worktree
-Description : Git worktree management
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Creates and removes git worktrees for agent sessions.
-Each issue gets its own worktree branching from the
-repository's main branch.
--}
+-- \|
+-- Module      : AgentDaemon.Worktree
+-- Description : Git worktree management
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Creates and removes git worktrees for agent sessions.
+-- Each issue gets its own worktree branching from the
+-- repository's main branch.
 
 import Data.Text (Text)
 import Data.Text qualified as T

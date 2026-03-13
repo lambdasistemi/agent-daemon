@@ -2,15 +2,14 @@ module AgentDaemon.Api
     ( apiApp
     ) where
 
-{- |
-Module      : AgentDaemon.Api
-Description : REST API for session management
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-WAI application providing REST endpoints for launching,
-listing, and stopping agent sessions.
--}
+-- \|
+-- Module      : AgentDaemon.Api
+-- Description : REST API for session management
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- WAI application providing REST endpoints for launching,
+-- listing, and stopping agent sessions.
 
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
@@ -28,6 +27,7 @@ import AgentDaemon.Worktree qualified as Worktree
 import Control.Concurrent.STM
     ( atomically
     , readTVar
+    , readTVarIO
     , writeTVar
     )
 import Data.Aeson qualified as Aeson
@@ -136,9 +136,10 @@ handleLaunch baseDir mgr req respond = do
                 respond $
                     responseLBS
                         status201
-                        [ ( "Content-Type"
-                          , "application/json"
-                          )
+                        [
+                            ( "Content-Type"
+                            , "application/json"
+                            )
                         ]
                         (Aeson.encode session)
 
@@ -147,7 +148,7 @@ handleList
     :: SessionManager
     -> Application
 handleList mgr _req respond = do
-    m <- atomically $ readTVar (sessions mgr)
+    m <- readTVarIO (sessions mgr)
     respond $
         responseLBS
             status200
@@ -161,7 +162,7 @@ handleStop
     -> SessionId
     -> Application
 handleStop baseDir mgr sid _req respond = do
-    m <- atomically $ readTVar (sessions mgr)
+    m <- readTVarIO (sessions mgr)
     case Map.lookup sid m of
         Nothing ->
             respond $

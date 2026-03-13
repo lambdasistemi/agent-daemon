@@ -2,14 +2,13 @@ module Main
     ( main
     ) where
 
-{- |
-Module      : Main
-Description : Entry point for agent-daemon
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Parses CLI options and starts the daemon server.
--}
+-- \|
+-- Module      : Main
+-- Description : Entry point for agent-daemon
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Parses CLI options and starts the daemon server.
 
 import AgentDaemon
     ( newSessionManager
