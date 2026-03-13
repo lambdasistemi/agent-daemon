@@ -16,9 +16,15 @@ module AgentDaemon.Worktree
 import Control.Exception (IOException, try)
 import Data.Text (Text)
 import Data.Text qualified as T
+import System.Directory (doesDirectoryExist)
 import System.Process (callProcess)
 
--- | Create a git worktree for an issue.
+{- | Create a git worktree for an issue.
+
+If the worktree directory already exists, succeeds
+without doing anything. If the branch already exists,
+reuses it instead of creating a new one.
+-}
 createWorktree
     :: FilePath
     -- ^ main repo path
@@ -28,22 +34,37 @@ createWorktree
     -- ^ branch name
     -> IO (Either Text ())
 createWorktree repoPath worktreePath branch = do
-    fetchResult <-
-        runGit
-            repoPath
-            ["fetch", "origin", "main"]
-    case fetchResult of
-        Left e -> pure (Left e)
-        Right () ->
-            runGit
-                repoPath
-                [ "worktree"
-                , "add"
-                , worktreePath
-                , "-b"
-                , T.unpack branch
-                , "origin/main"
-                ]
+    exists <- doesDirectoryExist worktreePath
+    if exists
+        then pure (Right ())
+        else do
+            fetchResult <-
+                runGit
+                    repoPath
+                    ["fetch", "origin", "main"]
+            case fetchResult of
+                Left e -> pure (Left e)
+                Right () -> do
+                    newBranch <-
+                        runGit
+                            repoPath
+                            [ "worktree"
+                            , "add"
+                            , worktreePath
+                            , "-b"
+                            , T.unpack branch
+                            , "origin/main"
+                            ]
+                    case newBranch of
+                        Right () -> pure (Right ())
+                        Left _ ->
+                            runGit
+                                repoPath
+                                [ "worktree"
+                                , "add"
+                                , worktreePath
+                                , T.unpack branch
+                                ]
 
 -- | Remove a git worktree.
 removeWorktree
