@@ -46,6 +46,20 @@ serve *args:
     #!/usr/bin/env bash
     nix run . -- {{args}}
 
+# --- Docs recipes ---
+
+# Build documentation
+build-docs:
+    mkdocs build
+
+# Serve documentation locally
+serve-docs:
+    mkdocs serve
+
+# Deploy documentation to GitHub Pages
+deploy-docs:
+    mkdocs-deploy --force
+
 # --- Client recipes ---
 
 host := "localhost"

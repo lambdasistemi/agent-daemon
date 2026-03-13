@@ -1,5 +1,5 @@
 site_name: Agent Daemon
-site_url: https://lambdasistemi.github.io/agent-daemon/docs/
+site_url: https://lambdasistemi.github.io/agent-daemon/docs
 repo_url: https://github.com/lambdasistemi/agent-daemon
 repo_name: lambdasistemi/agent-daemon
 
@@ -24,4 +24,4 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
   - tables
-  - admonitions
+  - admonition
