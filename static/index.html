@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agent-daemon</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 20px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e94560;
+      margin-right: auto;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    input, select {
+      padding: 6px 10px;
+      border: 1px solid #0f3460;
+      border-radius: 4px;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+    input::placeholder { color: #666; }
+    button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 4px;
+      background: #0f3460;
+      color: #e0e0e0;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #e94560; }
+    button.danger { background: #533; }
+    button.danger:hover { background: #a33; }
+    #status {
+      font-size: 12px;
+      color: #888;
+      padding: 0 8px;
+    }
+    #terminal-container {
+      flex: 1;
+      padding: 4px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>agent-daemon</h1>
+    <div class="controls">
+      <input id="owner" type="text" placeholder="owner" size="15">
+      <input id="repo" type="text" placeholder="repo" size="20">
+      <input id="issue" type="number" placeholder="#" size="5">
+      <button onclick="launch()">Launch</button>
+      <select id="session-select">
+        <option value="">-- sessions --</option>
+      </select>
+      <button onclick="attach()">Attach</button>
+      <button class="danger" onclick="stop()">Stop</button>
+      <button onclick="refreshSessions()">Refresh</button>
+    </div>
+    <span id="status">disconnected</span>
+  </header>
+  <div id="terminal-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script>
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      theme: {
+        background: '#1a1a2e',
+        foreground: '#e0e0e0',
+        cursor: '#e94560'
+      }
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal-container'));
+    fitAddon.fit();
+    window.addEventListener('resize', () => fitAddon.fit());
+
+    let ws = null;
+    const status = document.getElementById('status');
+    const sessionSelect = document.getElementById('session-select');
+
+    function apiBase() {
+      return window.location.origin;
+    }
+
+    function wsBase() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return proto + '//' + window.location.host;
+    }
+
+    async function launch() {
+      const owner = document.getElementById('owner').value;
+      const repo = document.getElementById('repo').value;
+      const issue = parseInt(document.getElementById('issue').value);
+      if (!owner || !repo || !issue) {
+        status.textContent = 'fill in owner, repo, and issue';
+        return;
+      }
+      try {
+        const res = await fetch(apiBase() + '/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: { owner, name: repo }, issue })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          status.textContent = 'launched: ' + (data.id || data.Id || JSON.stringify(data));
+          await refreshSessions();
+          // auto-select and attach
+          const sid = data.id;
+          if (sid) {
+            sessionSelect.value = sid;
+            attach();
+          }
+        } else {
+          status.textContent = 'error: ' + (data.error || res.statusText);
+        }
+      } catch (e) {
+        status.textContent = 'error: ' + e.message;
+      }
+    }
+
+    async function refreshSessions() {
+      try {
+        const res = await fetch(apiBase() + '/sessions');
+        const sessions = await res.json();
+        const prev = sessionSelect.value;
+        sessionSelect.innerHTML = '<option value="">-- sessions --</option>';
+        for (const s of sessions) {
+          const opt = document.createElement('option');
+          const sid = s.id || s.Id;
+          opt.value = sid;
+          opt.textContent = sid + ' (' + (s.state || s.State || '?') + ')';
+          sessionSelect.appendChild(opt);
+        }
+        if (prev) sessionSelect.value = prev;
+        status.textContent = sessions.length + ' session(s)';
+      } catch (e) {
+        status.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function attach() {
+      const sid = sessionSelect.value;
+      if (!sid) {
+        status.textContent = 'select a session first';
+        return;
+      }
+      disconnect();
+      term.clear();
+
+      const url = wsBase() + '/sessions/' + sid + '/terminal';
+      ws = new WebSocket(url);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        status.textContent = 'attached: ' + sid;
+        term.focus();
+        sendResize();
+      };
+
+      ws.onmessage = (ev) => {
+        if (ev.data instanceof ArrayBuffer) {
+          term.write(new Uint8Array(ev.data));
+        } else {
+          term.write(ev.data);
+        }
+      };
+
+      ws.onclose = () => {
+        status.textContent = 'disconnected';
+        ws = null;
+      };
+
+      ws.onerror = () => {
+        status.textContent = 'connection error';
+        ws = null;
+      };
+
+      term.onData((data) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(new TextEncoder().encode(data));
+        }
+      });
+
+      term.onResize(() => sendResize());
+    }
+
+    function sendResize() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const cols = term.cols;
+        const rows = term.rows;
+        // resize protocol: 0x01 + "cols;rows"
+        const msg = '\x01' + cols + ';' + rows;
+        ws.send(new TextEncoder().encode(msg));
+      }
+    }
+
+    function disconnect() {
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+    }
+
+    async function stop() {
+      const sid = sessionSelect.value;
+      if (!sid) {
+        status.textContent = 'select a session first';
+        return;
+      }
+      disconnect();
+      try {
+        const res = await fetch(apiBase() + '/sessions/' + sid, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        status.textContent = data.status || data.error || 'stopped';
+        await refreshSessions();
+      } catch (e) {
+        status.textContent = 'error: ' + e.message;
+      }
+    }
+
+    // Load sessions on page load
+    refreshSessions();
+  </script>
+</body>
+</html>
