@@ -84,3 +84,32 @@ executable agent-daemon
   default-extensions:
     ImportQualifiedPost
     OverloadedStrings
+
+test-suite e2e-tests
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  other-modules:    AgentDaemon.TerminalSpec
+  hs-source-dirs:   test
+  default-language: GHC2021
+  ghc-options:
+    -Wall -Werror -Wunused-imports -Wunused-packages
+    -Wmissing-export-lists -Wname-shadowing
+    -Wredundant-constraints -threaded -rtsopts
+    "-with-rtsopts=-N"
+
+  build-depends:
+    , agent-daemon
+    , base           >= 4.18 && < 5
+    , bytestring     >= 0.11 && < 0.13
+    , hspec          >= 2.11 && < 2.12
+    , process        >= 1.6  && < 1.7
+    , text           >= 2.0  && < 2.2
+    , websockets     >= 0.12 && < 0.14
+
+  build-tool-depends:
+    hspec-discover:hspec-discover
+
+  default-extensions:
+    ImportQualifiedPost
+    OverloadedStrings
+    ScopedTypeVariables
