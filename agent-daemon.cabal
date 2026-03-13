@@ -1,0 +1,84 @@
+cabal-version: 3.0
+name:          agent-daemon
+version:       0.1.0
+synopsis:      WebSocket daemon for managing Claude Code agent sessions
+description:
+  A Haskell WebSocket server that manages Claude Code agent
+  sessions via tmux and git worktrees. Provides terminal access
+  through xterm.js in the browser.
+
+license:       MIT
+license-file:  LICENSE
+author:        Paolo Veronelli
+maintainer:    paolo.veronelli@gmail.com
+copyright:     (c) 2026 Paolo Veronelli
+category:      Development
+build-type:    Simple
+homepage:
+  https://github.com/lambdasistemi/agent-daemon
+
+bug-reports:
+  https://github.com/lambdasistemi/agent-daemon/issues
+
+extra-doc-files:
+  README.md
+
+library
+  exposed-modules:
+    AgentDaemon
+    AgentDaemon.Api
+    AgentDaemon.Server
+    AgentDaemon.Terminal
+    AgentDaemon.Tmux
+    AgentDaemon.Types
+    AgentDaemon.Worktree
+
+  build-depends:
+    , aeson                >= 2.1   && < 2.3
+    , base                 >= 4.18  && < 5
+    , containers           >= 0.6   && < 0.8
+    , http-types           >= 0.12  && < 0.13
+    , process              >= 1.6   && < 1.7
+    , stm                  >= 2.5   && < 2.6
+    , text                 >= 2.0   && < 2.2
+    , time                 >= 1.12  && < 1.15
+    , wai                  >= 3.2   && < 3.3
+    , wai-websockets       >= 3.0   && < 3.1
+    , warp                 >= 3.3   && < 3.5
+    , websockets           >= 0.12  && < 0.14
+
+  hs-source-dirs:   src
+  default-language: GHC2021
+  ghc-options:
+    -Wall -Werror -Wunused-imports -Wunused-packages
+    -Wmissing-export-lists -Wname-shadowing
+    -Wredundant-constraints
+
+  default-extensions:
+    DataKinds
+    DerivingStrategies
+    ImportQualifiedPost
+    LambdaCase
+    NamedFieldPuns
+    OverloadedStrings
+    RecordWildCards
+    StrictData
+
+executable agent-daemon
+  main-is:          Main.hs
+  hs-source-dirs:   app
+  default-language: GHC2021
+  ghc-options:
+    -Wall -Werror -Wunused-imports -Wunused-packages
+    -Wmissing-export-lists -Wname-shadowing
+    -Wredundant-constraints -threaded -rtsopts
+    "-with-rtsopts=-N"
+
+  build-depends:
+    , agent-daemon
+    , base                    >= 4.18 && < 5
+    , optparse-applicative    >= 0.17 && < 0.19
+
+  default-extensions:
+    ImportQualifiedPost
+    OverloadedStrings
