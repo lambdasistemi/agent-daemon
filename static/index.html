@@ -134,13 +134,14 @@
         });
         const data = await res.json();
         if (res.ok) {
-          status.textContent = 'launched: ' + (data.id || data.Id || JSON.stringify(data));
-          await refreshSessions();
-          // auto-select and attach
           const sid = data.id;
-          if (sid) {
-            sessionSelect.value = sid;
+          await refreshSessions();
+          if (sid) sessionSelect.value = sid;
+          if (res.status === 201) {
+            status.textContent = 'launched: ' + sid;
             attach();
+          } else {
+            status.textContent = 'already exists: ' + sid + ' (select and attach)';
           }
         } else {
           status.textContent = 'error: ' + (data.error || res.statusText);

@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module AgentDaemon.Types
@@ -32,6 +31,7 @@ import Data.Aeson
     , genericParseJSON
     , genericToJSON
     )
+import Data.Aeson qualified as Aeson
 import Data.Char (isAsciiUpper, toLower)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -43,7 +43,7 @@ import GHC.Generics (Generic)
 -- | Unique identifier for a session, derived from repo and issue.
 newtype SessionId = SessionId {unSessionId :: Text}
     deriving stock (Eq, Ord, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+    deriving newtype (FromJSON, ToJSON)
 
 -- | GitHub repository reference.
 data Repo = Repo
@@ -73,7 +73,25 @@ data SessionState
     | -- | session failed with reason
       Failed Text
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+
+instance ToJSON SessionState where
+    toJSON Creating = Aeson.String "creating"
+    toJSON Running = Aeson.String "running"
+    toJSON Attached = Aeson.String "attached"
+    toJSON Stopping = Aeson.String "stopping"
+    toJSON (Failed reason) =
+        Aeson.String ("failed: " <> reason)
+
+instance FromJSON SessionState where
+    parseJSON = Aeson.withText "SessionState" $ \t ->
+        case t of
+            "creating" -> pure Creating
+            "running" -> pure Running
+            "attached" -> pure Attached
+            "stopping" -> pure Stopping
+            _ -> case T.stripPrefix "failed: " t of
+                Just reason -> pure (Failed reason)
+                Nothing -> fail "unknown state"
 
 -- | An agent session binding an issue to a tmux session.
 data Session = Session
