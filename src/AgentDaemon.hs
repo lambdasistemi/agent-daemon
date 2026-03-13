@@ -1,6 +1,7 @@
 module AgentDaemon
     ( module AgentDaemon.Types
     , module AgentDaemon.Server
+    , module AgentDaemon.Recovery
     ) where
 
 -- \|
@@ -11,5 +12,6 @@ module AgentDaemon
 --
 -- Convenience re-exports for the agent-daemon library.
 
+import AgentDaemon.Recovery
 import AgentDaemon.Server
 import AgentDaemon.Types
