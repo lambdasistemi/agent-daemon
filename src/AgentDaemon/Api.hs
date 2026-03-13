@@ -39,12 +39,15 @@ import Network.HTTP.Types
     ( ResponseHeaders
     , status200
     , status201
+    , status204
     , status400
     , status404
     , status500
     )
 import Network.Wai
     ( Application
+    , Middleware
+    , mapResponseHeaders
     , pathInfo
     , requestMethod
     , responseFile
@@ -60,26 +63,30 @@ apiApp
     -- ^ static files directory
     -> SessionManager
     -> Application
-apiApp baseDir staticDir mgr req respond =
-    case (requestMethod req, pathInfo req) of
-        ("POST", ["sessions"]) ->
-            handleLaunch baseDir mgr req respond
-        ("GET", ["sessions"]) ->
-            handleList mgr req respond
-        ("DELETE", ["sessions", sid]) ->
-            handleStop
-                baseDir
-                mgr
-                (SessionId sid)
-                req
-                respond
-        _ ->
-            respond $
-                responseFile
-                    status200
-                    [("Content-Type", "text/html")]
-                    (staticDir <> "/index.html")
-                    Nothing
+apiApp baseDir staticDir mgr =
+    cors $ \req respond ->
+        case (requestMethod req, pathInfo req) of
+            ("OPTIONS", _) ->
+                respond $
+                    responseLBS status204 [] ""
+            ("POST", ["sessions"]) ->
+                handleLaunch baseDir mgr req respond
+            ("GET", ["sessions"]) ->
+                handleList mgr req respond
+            ("DELETE", ["sessions", sid]) ->
+                handleStop
+                    baseDir
+                    mgr
+                    (SessionId sid)
+                    req
+                    respond
+            _ ->
+                respond $
+                    responseFile
+                        status200
+                        [("Content-Type", "text/html")]
+                        (staticDir <> "/index.html")
+                        Nothing
 
 -- | Build the main repo path from base dir and repo.
 repoPath :: FilePath -> Repo -> FilePath
@@ -300,3 +307,26 @@ claudePrompt Repo{repoOwner, repoName} issue =
         <> "/"
         <> repoName
         <> "'"
+
+{- | CORS middleware — adds permissive CORS headers to
+all responses.
+-}
+cors :: Middleware
+cors app req respond =
+    app req $ \response ->
+        respond $
+            mapResponseHeaders (++ corsHeaders) response
+
+-- | CORS headers allowing any origin.
+corsHeaders :: ResponseHeaders
+corsHeaders =
+    [ ("Access-Control-Allow-Origin", "*")
+    ,
+        ( "Access-Control-Allow-Methods"
+        , "GET, POST, DELETE, OPTIONS"
+        )
+    ,
+        ( "Access-Control-Allow-Headers"
+        , "Content-Type"
+        )
+    ]

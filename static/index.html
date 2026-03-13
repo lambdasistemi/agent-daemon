@@ -72,6 +72,7 @@
   <header>
     <h1>agent-daemon</h1>
     <div class="controls">
+      <input id="server" type="text" placeholder="server (empty = local)" size="25" onchange="saveServer()">
       <input id="owner" type="text" placeholder="owner" size="15">
       <input id="repo" type="text" placeholder="repo" size="20">
       <input id="issue" type="number" placeholder="#" size="5">
@@ -108,14 +109,32 @@
     let ws = null;
     const status = document.getElementById('status');
     const sessionSelect = document.getElementById('session-select');
+    const serverInput = document.getElementById('server');
+
+    // Restore saved server address
+    const saved = localStorage.getItem('agent-daemon-server');
+    if (saved) serverInput.value = saved;
+
+    function saveServer() {
+      const v = serverInput.value.trim();
+      if (v) localStorage.setItem('agent-daemon-server', v);
+      else localStorage.removeItem('agent-daemon-server');
+    }
 
     function apiBase() {
-      return window.location.origin;
+      const s = serverInput.value.trim();
+      if (!s) return window.location.origin;
+      return (s.startsWith('http') ? s : 'http://' + s).replace(/\/$/, '');
     }
 
     function wsBase() {
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return proto + '//' + window.location.host;
+      const s = serverInput.value.trim();
+      if (!s) {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return proto + '//' + window.location.host;
+      }
+      const host = s.replace(/^https?:\/\//, '');
+      return 'ws://' + host;
     }
 
     async function launch() {
