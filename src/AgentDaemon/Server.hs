@@ -26,9 +26,11 @@ startServer
     -- ^ port number
     -> FilePath
     -- ^ base directory for worktrees
+    -> FilePath
+    -- ^ static files directory
     -> SessionManager
     -> IO ()
-startServer port baseDir mgr = do
+startServer port baseDir staticDir mgr = do
     putStrLn $
         "agent-daemon listening on port "
             <> show port
@@ -36,7 +38,7 @@ startServer port baseDir mgr = do
         WaiWS.websocketsOr
             WS.defaultConnectionOptions
             wsApp
-            (apiApp baseDir mgr)
+            (apiApp baseDir staticDir mgr)
 
 -- | WebSocket application that routes to terminal sessions.
 wsApp :: WS.ServerApp

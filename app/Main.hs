@@ -39,6 +39,8 @@ data Config = Config
     -- ^ server port
     , configBaseDir :: FilePath
     -- ^ base directory for worktrees
+    , configStaticDir :: FilePath
+    -- ^ static files directory
     }
 
 -- | Parse CLI options.
@@ -59,6 +61,13 @@ configParser =
                 <> showDefault
                 <> value "/code"
             )
+        <*> strOption
+            ( long "static-dir"
+                <> help
+                    "Directory for static web files"
+                <> showDefault
+                <> value "static"
+            )
 
 -- | Entry point.
 main :: IO ()
@@ -78,4 +87,5 @@ main = do
     startServer
         (configPort config)
         (configBaseDir config)
+        (configStaticDir config)
         mgr

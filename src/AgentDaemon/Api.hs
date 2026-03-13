@@ -47,17 +47,20 @@ import Network.Wai
     ( Application
     , pathInfo
     , requestMethod
+    , responseFile
     , responseLBS
     , strictRequestBody
     )
 
--- | WAI application for the REST API.
+-- | WAI application for the REST API and static files.
 apiApp
     :: FilePath
     -- ^ base directory for worktrees
+    -> FilePath
+    -- ^ static files directory
     -> SessionManager
     -> Application
-apiApp baseDir mgr req respond =
+apiApp baseDir staticDir mgr req respond =
     case (requestMethod req, pathInfo req) of
         ("POST", ["sessions"]) ->
             handleLaunch baseDir mgr req respond
@@ -72,7 +75,11 @@ apiApp baseDir mgr req respond =
                 respond
         _ ->
             respond $
-                responseLBS status404 [] "Not found"
+                responseFile
+                    status200
+                    [("Content-Type", "text/html")]
+                    (staticDir <> "/index.html")
+                    Nothing
 
 -- | Build the main repo path from base dir and repo.
 repoPath :: FilePath -> Repo -> FilePath
