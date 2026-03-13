@@ -73,4 +73,7 @@ stop session_id:
 # Attach to a session terminal via WebSocket
 attach session_id:
     #!/usr/bin/env bash
+    cleanup() { stty sane; }
+    trap cleanup EXIT
+    stty raw -echo
     websocat -b "ws://{{host}}:{{port}}/sessions/{{session_id}}/terminal"
