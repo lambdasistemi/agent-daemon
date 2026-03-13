@@ -35,11 +35,11 @@ sequenceDiagram
     D->>A: POST /sessions {repo, issue}
     A->>A: git worktree add /code/<repo>-issue-<N>
     A->>T: tmux new-session -d -s <repo>-<N>
-    A->>T: send-keys "cd worktree && claude"
-    A-->>D: 201 {session_id, status: running}
+    A->>T: send-keys "claude 'Work on owner/repo#N...'"
+    A-->>D: 201 {session_id, state: creating}
 
     D->>A: WS /sessions/<id>/terminal
-    A->>T: tmux attach -t <repo>-<N>
+    A->>T: PTY attach to tmux session
     T-->>A: PTY stream
     A-->>D: terminal I/O (bidirectional)
 
@@ -47,14 +47,13 @@ sequenceDiagram
     Note over T,C: tmux + Claude keep running
 
     D->>A: WS /sessions/<id>/terminal
-    A->>T: tmux attach -t <repo>-<N>
-    T-->>A: PTY stream (resumes)
-    A-->>D: terminal I/O (reconnected)
+    A->>T: PTY attach (reconnect)
+    A-->>D: terminal I/O (resumed)
 
     D->>A: DELETE /sessions/<id>
     A->>T: tmux kill-session -t <repo>-<N>
     A->>A: git worktree remove
-    A-->>D: 200 OK
+    A-->>D: 200 {status: stopped}
 ```
 
 ## Component Architecture
@@ -64,14 +63,17 @@ graph TB
     subgraph "agent-daemon process"
         HTTP["Warp HTTP Server"]
         WS["WebSocket Handler"]
-        SM["Session Manager"]
+        SM["Session Manager<br/>(TVar Map)"]
         TM["Tmux Manager"]
         WM["Worktree Manager"]
+        REC["Recovery"]
 
         HTTP --> SM
         WS --> SM
         SM --> TM
         SM --> WM
+        REC --> SM
+        REC --> TM
     end
 
     subgraph "OS layer"
@@ -87,11 +89,12 @@ graph TB
 
 ### Components
 
-- **Warp HTTP Server** — REST endpoints for session CRUD
-- **WebSocket Handler** — bridges xterm.js to tmux PTY streams
-- **Session Manager** — tracks active sessions, maps issue to session
+- **Warp HTTP Server** — REST endpoints for session CRUD, static file serving
+- **WebSocket Handler** — bridges xterm.js to tmux PTY streams with bidirectional binary frames
+- **Session Manager** — in-memory `TVar (Map SessionId Session)`, thread-safe, not persisted to disk
 - **Tmux Manager** — creates, attaches, kills tmux sessions
-- **Worktree Manager** — creates and removes git worktrees
+- **Worktree Manager** — creates and removes git worktrees, branches as `feat/issue-<N>`
+- **Recovery** — on startup, scans for existing tmux sessions and reconstructs state from worktree directories and git remote URLs
 
 ## Session State Machine
 
@@ -149,6 +152,7 @@ classDiagram
 | Worktree path | `/code/<repo>-issue-<N>/` | `/code/cardano-utxo-csmt-issue-42/` |
 | tmux session | `<repo>-<N>` | `cardano-utxo-csmt-42` |
 | Branch | `feat/issue-<N>` | `feat/issue-42` |
+| Session ID | `<repo>-<N>` | `cardano-utxo-csmt-42` |
 
 ## REST API
 
@@ -163,11 +167,16 @@ Content-Type: application/json
   "issue": 42
 }
 
-→ 201 Created
+→ 201 Created (new session)
+→ 200 OK (session already exists, idempotent)
 {
   "id": "cardano-utxo-csmt-42",
+  "repo": { "owner": "cardano-foundation", "name": "cardano-utxo-csmt" },
+  "issue": 42,
+  "worktree": "/code/cardano-utxo-csmt-issue-42",
+  "tmuxName": "cardano-utxo-csmt-42",
   "state": "creating",
-  "worktree": "/code/cardano-utxo-csmt-issue-42"
+  "createdAt": "2026-03-13T10:30:00Z"
 }
 ```
 
@@ -191,10 +200,13 @@ GET /sessions
 ### Stop session
 
 ```
-DELETE /sessions/cardano-utxo-csmt-42?cleanup=true
+DELETE /sessions/cardano-utxo-csmt-42
 
 → 200 OK
+{ "status": "stopped" }
 ```
+
+Kills the tmux session and removes the git worktree.
 
 ### Terminal attach
 
@@ -205,6 +217,41 @@ Upgrade: websocket
 ↔ bidirectional binary frames (terminal I/O)
 ```
 
+Terminal resize is sent as a protocol message: `\x01cols;rows`.
+
+### Static files
+
+Any path not matching the API routes serves from `--static-dir`,
+falling back to `index.html` (SPA support).
+
+### CORS
+
+All responses include permissive CORS headers (any origin, GET/POST/DELETE/OPTIONS).
+
+## Issue Context Injection
+
+When a session launches, the daemon sends a bootstrap command to tmux:
+
+```bash
+claude 'Work on owner/repo#N. Start by running: gh issue view N -R owner/repo'
+```
+
+Claude receives the issue context by running `gh issue view` interactively.
+No environment variables or prompt files are used.
+
+## Session Recovery
+
+On startup the daemon reconstructs state from existing tmux sessions:
+
+1. Run `tmux list-sessions` to find active sessions
+2. Parse session names (split on last hyphen: `repo-name-N` → repo=`repo-name`, issue=`N`)
+3. Check for worktree directory at `baseDir/repoName-issue-N`
+4. Read git remote URL from the worktree to recover `repoOwner`
+5. Create `Session` records with `Running` state in the in-memory map
+
+This means the daemon can be restarted without losing track of running
+agent sessions — tmux and worktrees are the persistent state.
+
 ## Network Topology
 
 ```mermaid
@@ -214,37 +261,36 @@ graph LR
     end
 
     subgraph "Tailscale network"
-        TS["Tailscale tunnel"]
+        TS["tailscale serve<br/>TLS termination<br/>:8443 → :8080"]
     end
 
-    subgraph "Server (single machine)"
-        AD["agent-daemon<br/>:8080"]
+    subgraph "Server"
+        AD["agent-daemon<br/>127.0.0.1:8080"]
         T1["tmux: csmt-42"]
         T2["tmux: wallet-15"]
         W1["/code/csmt-issue-42/"]
         W2["/code/wallet-issue-15/"]
     end
 
-    Browser --> TS --> AD
+    Browser -- "wss://" --> TS --> AD
     AD --> T1
     AD --> T2
     T1 -.-> W1
     T2 -.-> W2
 ```
 
-## Open Questions
+The daemon binds to `127.0.0.1` (localhost only). `tailscale serve`
+provides TLS termination on port 8443, accessible only within the
+tailnet. See README.md for setup instructions.
 
-1. **Issue context injection** — how does Claude know what issue to work on?
-   Options: prompt file in worktree, `CLAUDE_ISSUE` env var, or rely
-   on a bootstrap skill that reads from branch name.
+## Authentication
 
-2. **Authentication** — Tailscale ACLs may suffice. Add token auth later
-   if needed.
+Currently relies on Tailscale ACLs — only machines on the tailnet can
+reach the service. No application-level authentication (tokens, API keys).
 
-3. **Completion detection** — how to know the agent is done?
-   Watch for PR creation via GitHub webhook, or poll.
+## Current Limitations
 
-4. **Resource limits** — max concurrent sessions, memory/CPU guards.
-
-5. **Session recovery** — if daemon restarts, rediscover running tmux
-   sessions and reconstruct state.
+- **No resource limits** — unbounded concurrent sessions, no memory or CPU guards
+- **No completion detection** — sessions run until explicitly stopped; no webhook or polling for PR creation
+- **In-memory state** — session metadata is not persisted to disk (recovered from tmux on restart)
+- **Single WebSocket per session** — no multi-attach tracking
