@@ -4,17 +4,16 @@ module AgentDaemon.Terminal
     ( terminalApp
     ) where
 
-{- |
-Module      : AgentDaemon.Terminal
-Description : WebSocket to PTY terminal bridge
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Bridges WebSocket connections from xterm.js to tmux
-sessions via pseudo-terminals. Each connection spawns
-a PTY running @tmux attach@ and relays I\/O
-bidirectionally.
--}
+-- \|
+-- Module      : AgentDaemon.Terminal
+-- Description : WebSocket to PTY terminal bridge
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Bridges WebSocket connections from xterm.js to tmux
+-- sessions via pseudo-terminals. Each connection spawns
+-- a PTY running @tmux attach@ and relays I\/O
+-- bidirectionally.
 
 import Control.Concurrent
     ( forkIO
@@ -34,8 +33,9 @@ import System.Posix.Pty
     , writePty
     )
 
--- | WebSocket application that attaches to a tmux
--- session via a pseudo-terminal.
+{- | WebSocket application that attaches to a tmux
+session via a pseudo-terminal.
+-}
 terminalApp
     :: Text
     -- ^ tmux session name
@@ -88,12 +88,13 @@ wsTopty pty conn = go
                 writePty pty msg
                 go
 
--- | Parse a resize message from xterm.js.
---
--- Expected format: @\\x01COLS;ROWS@ (binary prefix
--- byte 0x01 followed by ASCII dimensions separated
--- by semicolon). Returns @Nothing@ for regular
--- terminal input.
+{- | Parse a resize message from xterm.js.
+
+Expected format: @\\x01COLS;ROWS@ (binary prefix
+byte 0x01 followed by ASCII dimensions separated
+by semicolon). Returns @Nothing@ for regular
+terminal input.
+-}
 parseResize
     :: BS.ByteString -> Maybe (Int, Int)
 parseResize bs = do

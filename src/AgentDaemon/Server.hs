@@ -2,15 +2,14 @@ module AgentDaemon.Server
     ( startServer
     ) where
 
-{- |
-Module      : AgentDaemon.Server
-Description : Warp server with WebSocket support
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Combines the REST API and WebSocket terminal handler
-into a single warp server using wai-websockets middleware.
--}
+-- \|
+-- Module      : AgentDaemon.Server
+-- Description : Warp server with WebSocket support
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Combines the REST API and WebSocket terminal handler
+-- into a single warp server using wai-websockets middleware.
 
 import AgentDaemon.Api (apiApp)
 import AgentDaemon.Terminal (terminalApp)

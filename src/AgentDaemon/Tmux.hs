@@ -5,16 +5,15 @@ module AgentDaemon.Tmux
     , sendKeys
     ) where
 
-{- |
-Module      : AgentDaemon.Tmux
-Description : Tmux subprocess management
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Manages tmux sessions for agent processes. Each agent runs
-inside a named tmux session that persists across terminal
-disconnects.
--}
+-- \|
+-- Module      : AgentDaemon.Tmux
+-- Description : Tmux subprocess management
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Manages tmux sessions for agent processes. Each agent runs
+-- inside a named tmux session that persists across terminal
+-- disconnects.
 
 import Data.Text (Text)
 import Data.Text qualified as T

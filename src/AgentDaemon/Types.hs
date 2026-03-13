@@ -14,15 +14,14 @@ module AgentDaemon.Types
     , mkWorktreePath
     ) where
 
-{- |
-Module      : AgentDaemon.Types
-Description : Core domain types
-Copyright   : (c) Paolo Veronelli, 2026
-License     : MIT
-
-Domain types for agent session management. A session maps
-a GitHub issue to a tmux session running in a git worktree.
--}
+-- \|
+-- Module      : AgentDaemon.Types
+-- Description : Core domain types
+-- Copyright   : (c) Paolo Veronelli, 2026
+-- License     : MIT
+--
+-- Domain types for agent session management. A session maps
+-- a GitHub issue to a tmux session running in a git worktree.
 
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Data.Aeson
