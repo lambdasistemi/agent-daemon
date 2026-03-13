@@ -70,10 +70,11 @@ stop session_id:
     #!/usr/bin/env bash
     curl -sS -X DELETE "{{base}}/sessions/{{session_id}}" | jq .
 
-# Attach to a session terminal via WebSocket
+# Attach to a session terminal via WebSocket (Ctrl+C to detach)
 attach session_id:
     #!/usr/bin/env bash
-    cleanup() { stty sane; }
+    cleanup() { stty sane 2>/dev/null; }
+    trap 'cleanup; exit 0' INT TERM
     trap cleanup EXIT
-    stty raw -echo
+    stty raw -echo isig
     websocat -b "ws://{{host}}:{{port}}/sessions/{{session_id}}/terminal"
