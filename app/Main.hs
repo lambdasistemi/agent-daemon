@@ -12,6 +12,7 @@ module Main
 
 import AgentDaemon
     ( newSessionManager
+    , recoverSessions
     , startServer
     )
 import Options.Applicative
@@ -73,6 +74,7 @@ main = do
                         "agent-daemon - terminal session manager"
                 )
     mgr <- newSessionManager
+    recoverSessions (configBaseDir config) mgr
     startServer
         (configPort config)
         (configBaseDir config)
