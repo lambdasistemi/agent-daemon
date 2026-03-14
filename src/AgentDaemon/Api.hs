@@ -11,6 +11,7 @@ module AgentDaemon.Api
 -- WAI application providing REST endpoints for launching,
 -- listing, and stopping agent sessions.
 
+import AgentDaemon.Recovery (getRepoOwner)
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
     ( LaunchRequest (..)
@@ -19,6 +20,7 @@ import AgentDaemon.Types
     , SessionId (..)
     , SessionManager (..)
     , SessionState (..)
+    , WorktreeInfo (..)
     , mkSessionId
     , mkTmuxName
     , mkWorktreePath
@@ -32,6 +34,7 @@ import Control.Concurrent.STM
     )
 import Data.Aeson qualified as Aeson
 import Data.Map.Strict qualified as Map
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (getCurrentTime)
@@ -54,6 +57,7 @@ import Network.Wai
     , responseLBS
     , strictRequestBody
     )
+import System.Directory (doesDirectoryExist, listDirectory)
 
 -- | WAI application for the REST API and static files.
 apiApp
@@ -73,6 +77,8 @@ apiApp baseDir staticDir mgr =
                 handleLaunch baseDir mgr req respond
             ("GET", ["sessions"]) ->
                 handleList mgr req respond
+            ("GET", ["worktrees"]) ->
+                handleListWorktrees baseDir req respond
             ("DELETE", ["sessions", sid]) ->
                 handleStop
                     baseDir
@@ -213,6 +219,70 @@ handleList mgr _req respond = do
             status200
             jsonHeaders
             (Aeson.encode $ Map.elems m)
+
+-- | List all worktree directories on disk.
+handleListWorktrees
+    :: FilePath
+    -> Application
+handleListWorktrees baseDir _req respond = do
+    entries <- listDirectory baseDir
+    worktrees <-
+        catMaybes
+            <$> mapM (toWorktreeInfo baseDir) entries
+    respond $
+        responseLBS
+            status200
+            jsonHeaders
+            (Aeson.encode worktrees)
+
+{- | Try to build a 'WorktreeInfo' from a directory name.
+
+Matches the pattern @repoName-issue-N@ and reads the
+repo owner from the git remote.
+-}
+toWorktreeInfo
+    :: FilePath -> FilePath -> IO (Maybe WorktreeInfo)
+toWorktreeInfo baseDir name =
+    case parseWorktreeName (T.pack name) of
+        Nothing -> pure Nothing
+        Just (repoName, issue) -> do
+            let path = baseDir <> "/" <> name
+            isDir <- doesDirectoryExist path
+            if not isDir
+                then pure Nothing
+                else do
+                    owner <- getRepoOwner path
+                    pure $
+                        Just
+                            WorktreeInfo
+                                { worktreeRepo =
+                                    Repo
+                                        { repoOwner = owner
+                                        , repoName = repoName
+                                        }
+                                , worktreeIssue = issue
+                                , worktreePath = path
+                                }
+
+{- | Parse a worktree directory name into repo name
+and issue number.
+
+@"agent-daemon-issue-32"@ becomes
+@Just ("agent-daemon", 32)@.
+-}
+parseWorktreeName :: Text -> Maybe (Text, Int)
+parseWorktreeName name =
+    case T.breakOn "-issue-" name of
+        (_, "") -> Nothing
+        (repoName, rest) -> do
+            let numText = T.drop 7 rest -- drop "-issue-"
+            issue <-
+                case reads (T.unpack numText) of
+                    [(n, "")] -> Just n
+                    _ -> Nothing
+            if T.null repoName
+                then Nothing
+                else Just (repoName, issue)
 
 -- | Stop a session and clean up resources.
 handleStop

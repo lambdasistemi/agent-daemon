@@ -7,6 +7,7 @@ module AgentDaemon.Types
     , Session (..)
     , SessionManager (..)
     , LaunchRequest (..)
+    , WorktreeInfo (..)
     , newSessionManager
     , mkSessionId
     , mkTmuxName
@@ -169,6 +170,20 @@ mkWorktreePath baseDir Repo{repoName} issue =
         <> T.unpack repoName
         <> "-issue-"
         <> show issue
+
+-- | A worktree directory on disk, with repo and issue metadata.
+data WorktreeInfo = WorktreeInfo
+    { worktreeRepo :: Repo
+    -- ^ repository reference
+    , worktreeIssue :: Int
+    -- ^ issue number
+    , worktreePath :: FilePath
+    -- ^ absolute path to the worktree directory
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON WorktreeInfo where
+    toJSON = genericToJSON stripPrefix
 
 {- | Aeson options that strip a camelCase prefix and
 lowercase the first letter of the remainder.
