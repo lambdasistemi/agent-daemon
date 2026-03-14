@@ -8,10 +8,6 @@ WebSocket daemon for managing Claude Code agent sessions via tmux and git worktr
 
 See the [full documentation](https://lambdasistemi.github.io/agent-daemon/docs/).
 
-- [Design](https://lambdasistemi.github.io/agent-daemon/docs/design/) — architecture, API reference, data model
-- [Deployment](https://lambdasistemi.github.io/agent-daemon/docs/deployment/) — NixOS module, systemd, direct binary
-- [Tailscale HTTPS](https://lambdasistemi.github.io/agent-daemon/docs/tailscale/) — TLS setup via `tailscale serve`
-
 ## Quick start
 
 ```bash
