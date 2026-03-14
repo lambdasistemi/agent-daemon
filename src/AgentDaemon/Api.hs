@@ -399,4 +399,8 @@ corsHeaders =
         ( "Access-Control-Allow-Headers"
         , "Content-Type"
         )
+    ,
+        ( "Access-Control-Allow-Private-Network"
+        , "true"
+        )
     ]
