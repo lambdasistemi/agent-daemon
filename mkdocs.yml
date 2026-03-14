@@ -16,12 +16,12 @@ nav:
   - Deployment: deployment.md
   - Tailscale HTTPS: tailscale.md
 
+plugins:
+  - search
+  - mermaid2
+
 markdown_extensions:
   - pymdownx.highlight
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_mermaid_format
+  - pymdownx.superfences
   - tables
   - admonition
