@@ -54,6 +54,12 @@ in
       default = true;
       description = "Whether to create a dedicated system user and group. Disable when running as an existing user.";
     };
+
+    sshAuthSock = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Path to SSH_AUTH_SOCK for git SSH access. Required when the service user has SSH keys managed by an agent.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -72,6 +78,10 @@ in
       wantedBy = [ "multi-user.target" ];
 
       path = [ pkgs.tmux pkgs.git pkgs.openssh ];
+
+      environment = lib.mkIf (cfg.sshAuthSock != "") {
+        SSH_AUTH_SOCK = cfg.sshAuthSock;
+      };
 
       serviceConfig = {
         Type = "simple";
