@@ -20,7 +20,7 @@
         docs = pkgs.stdenv.mkDerivation {
           name = "agent-daemon-docs";
           src = ./.;
-          buildInputs = [ pkgs.mkdocs mkdocsPackages.from-nixpkgs ];
+          buildInputs = [ mkdocsPackages.from-nixpkgs ];
           buildPhase = ''
             mkdocs build -d $out
           '';
