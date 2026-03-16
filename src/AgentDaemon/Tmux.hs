@@ -47,6 +47,8 @@ createSession name workDir = do
                 , T.unpack name
                 , "-c"
                 , workDir
+                , "-n"
+                , "agent"
                 ]
 
 -- | Kill a tmux session by name.
