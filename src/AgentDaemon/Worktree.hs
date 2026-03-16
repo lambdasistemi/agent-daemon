@@ -14,10 +14,11 @@ module AgentDaemon.Worktree
 -- repository's main branch.
 
 import Control.Exception (IOException, try)
+import Data.List (dropWhileEnd)
 import Data.Text (Text)
 import Data.Text qualified as T
 import System.Directory (doesDirectoryExist)
-import System.Process (callProcess)
+import System.Process (callProcess, readProcess)
 
 {- | Create a git worktree for an issue.
 
@@ -38,10 +39,11 @@ createWorktree repoPath worktreePath branch = do
     if exists
         then pure (Right ())
         else do
+            defBranch <- defaultBranch repoPath
             fetchResult <-
                 runGit
                     repoPath
-                    ["fetch", "origin", "main"]
+                    ["fetch", "origin", defBranch]
             case fetchResult of
                 Left e -> pure (Left e)
                 Right () -> do
@@ -53,7 +55,7 @@ createWorktree repoPath worktreePath branch = do
                             , worktreePath
                             , "-b"
                             , T.unpack branch
-                            , "origin/main"
+                            , "origin/" <> defBranch
                             ]
                     case newBranch of
                         Right () -> pure (Right ())
@@ -65,6 +67,31 @@ createWorktree repoPath worktreePath branch = do
                                 , worktreePath
                                 , T.unpack branch
                                 ]
+
+{- | Detect the default branch by reading
+@refs/remotes/origin/HEAD@. Falls back to @"main"@.
+-}
+defaultBranch :: FilePath -> IO String
+defaultBranch repoPath = do
+    result <-
+        try
+            ( readProcess
+                "git"
+                [ "-C"
+                , repoPath
+                , "symbolic-ref"
+                , "refs/remotes/origin/HEAD"
+                , "--short"
+                ]
+                ""
+            )
+    pure $ case result of
+        Right out ->
+            let trimmed = dropWhileEnd (== '\n') out
+            in  case drop 1 (dropWhile (/= '/') trimmed) of
+                    [] -> "main"
+                    name -> name
+        Left (_ :: IOException) -> "main"
 
 -- | Remove a git worktree.
 removeWorktree
