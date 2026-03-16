@@ -128,7 +128,7 @@ toBranchInfo repoPath repo branch =
 parseIssueBranch :: String -> Maybe Int
 parseIssueBranch branch
     | "feat/issue-" `isPrefixOf` branch =
-        case reads (drop 12 branch) of
+        case reads (drop 11 branch) of
             [(n, "")] -> Just n
             _ -> Nothing
     | otherwise = Nothing
