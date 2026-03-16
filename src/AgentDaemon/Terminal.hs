@@ -15,6 +15,11 @@ module AgentDaemon.Terminal
 -- a PTY running @tmux attach@ and relays I\/O
 -- bidirectionally.
 
+import AgentDaemon.Types
+    ( SessionId
+    , SessionManager
+    , updateSessionActivity
+    )
 import Control.Concurrent
     ( forkIO
     , killThread
@@ -23,6 +28,7 @@ import Control.Exception (SomeException, catch)
 import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Time (getCurrentTime)
 import Network.WebSockets qualified as WS
 import System.Environment (getEnvironment)
 import System.Posix.Pty
@@ -35,12 +41,17 @@ import System.Posix.Pty
 
 {- | WebSocket application that attaches to a tmux
 session via a pseudo-terminal.
+
+Updates the session's last activity timestamp on
+each I\/O event.
 -}
 terminalApp
-    :: Text
+    :: SessionManager
+    -> SessionId
+    -> Text
     -- ^ tmux session name
     -> WS.ServerApp
-terminalApp sessionName pending = do
+terminalApp mgr sid sessionName pending = do
     conn <- WS.acceptRequest pending
     env <- withTerm <$> getEnvironment
     (pty, _pid) <-
@@ -51,14 +62,19 @@ terminalApp sessionName pending = do
             ["attach", "-t", T.unpack sessionName]
             (80, 24)
     WS.withPingThread conn 30 (pure ()) $ do
-        readerId <- forkIO $ ptyToWs pty conn
-        wsTopty pty conn
+        readerId <- forkIO $ ptyToWs mgr sid pty conn
+        wsTopty mgr sid pty conn
             `catch` \(_ :: SomeException) -> pure ()
         killThread readerId
 
 -- | Forward PTY output to WebSocket.
-ptyToWs :: Pty -> WS.Connection -> IO ()
-ptyToWs pty conn = go
+ptyToWs
+    :: SessionManager
+    -> SessionId
+    -> Pty
+    -> WS.Connection
+    -> IO ()
+ptyToWs mgr sid pty conn = go
   where
     go = do
         bytes <-
@@ -72,11 +88,17 @@ ptyToWs pty conn = go
                     ("PTY closed" :: Text)
             else do
                 WS.sendBinaryData conn bytes
+                touchActivity mgr sid
                 go
 
 -- | Forward WebSocket input to PTY.
-wsTopty :: Pty -> WS.Connection -> IO ()
-wsTopty pty conn = go
+wsTopty
+    :: SessionManager
+    -> SessionId
+    -> Pty
+    -> WS.Connection
+    -> IO ()
+wsTopty mgr sid pty conn = go
   where
     go = do
         msg <- WS.receiveData conn
@@ -86,7 +108,15 @@ wsTopty pty conn = go
                 go
             Nothing -> do
                 writePty pty msg
+                touchActivity mgr sid
                 go
+
+-- | Update the last activity timestamp for a session.
+touchActivity
+    :: SessionManager -> SessionId -> IO ()
+touchActivity mgr sid = do
+    now <- getCurrentTime
+    updateSessionActivity mgr sid now
 
 {- | Parse a resize message from xterm.js.
 

@@ -1,9 +1,7 @@
 { self }:
 { config, lib, pkgs, ... }:
-let
-  cfg = config.services.agent-daemon;
-in
-{
+let cfg = config.services.agent-daemon;
+in {
   options.services.agent-daemon = {
     enable = lib.mkEnableOption "agent-daemon";
 
@@ -52,13 +50,15 @@ in
     createUser = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "Whether to create a dedicated system user and group. Disable when running as an existing user.";
+      description =
+        "Whether to create a dedicated system user and group. Disable when running as an existing user.";
     };
 
     sshAuthSock = lib.mkOption {
       type = lib.types.str;
       default = "";
-      description = "Path to SSH_AUTH_SOCK for git SSH access. Required when the service user has SSH keys managed by an agent.";
+      description =
+        "Path to SSH_AUTH_SOCK for git SSH access. Required when the service user has SSH keys managed by an agent.";
     };
   };
 
@@ -79,9 +79,8 @@ in
 
       path = [ pkgs.tmux pkgs.git pkgs.openssh ];
 
-      environment = lib.mkIf (cfg.sshAuthSock != "") {
-        SSH_AUTH_SOCK = cfg.sshAuthSock;
-      };
+      environment =
+        lib.mkIf (cfg.sshAuthSock != "") { SSH_AUTH_SOCK = cfg.sshAuthSock; };
 
       serviceConfig = {
         Type = "simple";
