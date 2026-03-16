@@ -8,6 +8,8 @@ module AgentDaemon.Types
     , SessionManager (..)
     , LaunchRequest (..)
     , WorktreeInfo (..)
+    , BranchInfo (..)
+    , SyncStatus (..)
     , newSessionManager
     , mkSessionId
     , mkTmuxName
@@ -194,6 +196,56 @@ data WorktreeInfo = WorktreeInfo
     deriving stock (Eq, Show, Generic)
 
 instance ToJSON WorktreeInfo where
+    toJSON = genericToJSON stripPrefix
+
+-- | Remote sync status for a branch.
+data SyncStatus
+    = -- | local and remote are identical
+      Synced
+    | -- | local has commits not on remote
+      Ahead Int
+    | -- | remote has commits not on local
+      Behind Int
+    | -- | both have diverged
+      Diverged {branchAhead :: Int, branchBehind :: Int}
+    | -- | no remote tracking branch
+      LocalOnly
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON SyncStatus where
+    toJSON Synced = Aeson.String "synced"
+    toJSON (Ahead n) =
+        Aeson.object
+            [ ("status", Aeson.String "ahead")
+            , ("count", Aeson.toJSON n)
+            ]
+    toJSON (Behind n) =
+        Aeson.object
+            [ ("status", Aeson.String "behind")
+            , ("count", Aeson.toJSON n)
+            ]
+    toJSON (Diverged a b) =
+        Aeson.object
+            [ ("status", Aeson.String "diverged")
+            , ("ahead", Aeson.toJSON a)
+            , ("behind", Aeson.toJSON b)
+            ]
+    toJSON LocalOnly = Aeson.String "local-only"
+
+-- | A local issue branch with sync status.
+data BranchInfo = BranchInfo
+    { branchRepo :: Repo
+    -- ^ repository reference
+    , branchIssue :: Int
+    -- ^ issue number
+    , branchName :: Text
+    -- ^ branch name (e.g. @feat\/issue-42@)
+    , branchSync :: SyncStatus
+    -- ^ sync status with remote
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON BranchInfo where
     toJSON = genericToJSON stripPrefix
 
 {- | Aeson options that strip a camelCase prefix and

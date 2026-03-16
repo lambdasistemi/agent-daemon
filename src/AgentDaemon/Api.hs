@@ -11,6 +11,7 @@ module AgentDaemon.Api
 -- WAI application providing REST endpoints for launching,
 -- listing, and stopping agent sessions.
 
+import AgentDaemon.Branch qualified as Branch
 import AgentDaemon.Recovery (getRepoOwner)
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
@@ -79,6 +80,15 @@ apiApp baseDir staticDir mgr =
                 handleList mgr req respond
             ("GET", ["worktrees"]) ->
                 handleListWorktrees baseDir req respond
+            ("GET", ["branches"]) ->
+                handleListBranches baseDir req respond
+            ("DELETE", ["branches", repo, branch]) ->
+                handleDeleteBranch
+                    baseDir
+                    repo
+                    branch
+                    req
+                    respond
             ("DELETE", ["sessions", sid]) ->
                 handleStop
                     baseDir
@@ -332,6 +342,50 @@ handleStop baseDir mgr sid _req respond = do
                             [
                                 ( "status"
                                 , Aeson.String "stopped"
+                                )
+                            ]
+                    )
+
+-- | List all local issue branches.
+handleListBranches
+    :: FilePath
+    -> Application
+handleListBranches baseDir _req respond = do
+    branches <- Branch.listBranches baseDir
+    respond $
+        responseLBS
+            status200
+            jsonHeaders
+            (Aeson.encode branches)
+
+-- | Delete a branch locally and on the remote.
+handleDeleteBranch
+    :: FilePath
+    -> Text
+    -- ^ repo name
+    -> Text
+    -- ^ branch name
+    -> Application
+handleDeleteBranch baseDir repo branch _req respond = do
+    result <-
+        Branch.deleteBranch baseDir repo branch False
+    case result of
+        Left err ->
+            respond $
+                responseLBS
+                    status400
+                    jsonHeaders
+                    (Aeson.encode $ errorJson err)
+        Right () ->
+            respond $
+                responseLBS
+                    status200
+                    jsonHeaders
+                    ( Aeson.encode $
+                        Aeson.object
+                            [
+                                ( "status"
+                                , Aeson.String "deleted"
                                 )
                             ]
                     )
