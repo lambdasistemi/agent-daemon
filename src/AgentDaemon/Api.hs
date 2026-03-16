@@ -143,7 +143,8 @@ handleLaunch baseDir mgr req respond = do
             worktree =
                 mkWorktreePath baseDir' repo issue
         now <- getCurrentTime
-        let session =
+        let prompt = claudePrompt repo issue
+            session =
                 Session
                     { sessionId = sid
                     , sessionRepo = repo
@@ -152,6 +153,8 @@ handleLaunch baseDir mgr req respond = do
                     , sessionTmuxName = tmuxName
                     , sessionState = Creating
                     , sessionCreatedAt = now
+                    , sessionPrompt = prompt
+                    , sessionLastActivity = now
                     }
         atomically $ do
             m <- readTVar (sessions mgr')

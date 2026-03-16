@@ -122,6 +122,9 @@ recoverSession baseDir tmuxName =
                                     tmuxName
                                 , sessionState = Running
                                 , sessionCreatedAt = now
+                                , sessionPrompt = ""
+                                , sessionLastActivity =
+                                    now
                                 }
 
 {- | Parse a tmux session name into repo name and

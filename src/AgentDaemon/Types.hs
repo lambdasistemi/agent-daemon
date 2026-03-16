@@ -12,6 +12,7 @@ module AgentDaemon.Types
     , mkSessionId
     , mkTmuxName
     , mkWorktreePath
+    , updateSessionActivity
     ) where
 
 -- \|
@@ -23,7 +24,13 @@ module AgentDaemon.Types
 -- Domain types for agent session management. A session maps
 -- a GitHub issue to a tmux session running in a git worktree.
 
-import Control.Concurrent.STM (TVar, newTVarIO)
+import Control.Concurrent.STM
+    ( TVar
+    , atomically
+    , newTVarIO
+    , readTVar
+    , writeTVar
+    )
 import Data.Aeson
     ( FromJSON (..)
     , Options (..)
@@ -110,6 +117,10 @@ data Session = Session
     -- ^ current session state
     , sessionCreatedAt :: UTCTime
     -- ^ creation timestamp
+    , sessionPrompt :: Text
+    -- ^ initial prompt sent to Claude
+    , sessionLastActivity :: UTCTime
+    -- ^ last terminal I/O timestamp
     }
     deriving stock (Eq, Show, Generic)
 
@@ -202,3 +213,15 @@ stripPrefix =
             [] -> s
             (c : cs) -> toLower c : cs
     isUpper = isAsciiUpper
+
+-- | Update the last activity timestamp for a session.
+updateSessionActivity
+    :: SessionManager -> SessionId -> UTCTime -> IO ()
+updateSessionActivity mgr sid now =
+    atomically $ do
+        m <- readTVar (sessions mgr)
+        writeTVar (sessions mgr) $
+            Map.adjust
+                (\s -> s{sessionLastActivity = now})
+                sid
+                m

@@ -13,7 +13,7 @@ module AgentDaemon.Server
 
 import AgentDaemon.Api (apiApp)
 import AgentDaemon.Terminal (terminalApp)
-import AgentDaemon.Types (SessionManager)
+import AgentDaemon.Types (SessionId (..), SessionManager)
 import Data.String (fromString)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -47,12 +47,12 @@ startServer host port baseDir staticDir mgr = do
     Warp.runSettings settings $
         WaiWS.websocketsOr
             WS.defaultConnectionOptions
-            wsApp
+            (wsApp mgr)
             (apiApp baseDir staticDir mgr)
 
 -- | WebSocket application that routes to terminal sessions.
-wsApp :: WS.ServerApp
-wsApp pending = do
+wsApp :: SessionManager -> WS.ServerApp
+wsApp mgr pending = do
     let path =
             T.splitOn
                 "/"
@@ -62,7 +62,11 @@ wsApp pending = do
                 )
     case path of
         ["", "sessions", sid, "terminal"] ->
-            terminalApp sid pending
+            terminalApp
+                mgr
+                (SessionId sid)
+                sid
+                pending
         _ ->
             WS.rejectRequest
                 pending
