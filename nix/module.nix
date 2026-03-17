@@ -87,6 +87,7 @@ in {
         User = cfg.user;
         Group = cfg.group;
         WorkingDirectory = cfg.baseDir;
+        ExecStartPre = "${pkgs.bash}/bin/bash -c '${pkgs.coreutils}/bin/kill $(${pkgs.util-linux}/bin/fuser ${toString cfg.port}/tcp 2>/dev/null) 2>/dev/null || true'";
         ExecStart = lib.concatStringsSep " " [
           "${cfg.package}/bin/agent-daemon"
           "--host ${cfg.host}"
