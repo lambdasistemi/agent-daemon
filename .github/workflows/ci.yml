@@ -11,7 +11,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-gate:
+    name: Build Gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/cachix-action@v15
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build all derivations
+        run: >-
+          nix build --quiet
+          .#default
+          .#devShells.x86_64-linux.default.inputDerivation
+
   build:
+    needs: build-gate
     runs-on: nixos
     steps:
       - uses: actions/checkout@v4
