@@ -53,4 +53,4 @@ jobs:
             extra-trusted-public-keys = paolino.cachix.org-1:ecmgO3CXdgSWA2cHlm4srknd/cLFMLmK3i3NrzeDFaE=
 
       - name: Build
-        run: nix build --quiet
+        run: nix build -L
