@@ -4,18 +4,20 @@ module AgentDaemon.Api
 
 -- \|
 -- Module      : AgentDaemon.Api
--- Description : REST API for session management
+-- Description : Servant server for the REST API
 -- Copyright   : (c) Paolo Veronelli, 2026
 -- License     : MIT
 --
--- WAI application providing REST endpoints for launching,
--- listing, and stopping agent sessions.
+-- Servant-based WAI application providing REST endpoints
+-- for launching, listing, and stopping agent sessions.
 
+import AgentDaemon.Api.Types (agentApi)
 import AgentDaemon.Branch qualified as Branch
 import AgentDaemon.Recovery (getRepoOwner)
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
-    ( LaunchRequest (..)
+    ( BranchInfo (..)
+    , LaunchRequest (..)
     , Repo (..)
     , Session (..)
     , SessionId (..)
@@ -33,32 +35,38 @@ import Control.Concurrent.STM
     , readTVarIO
     , writeTVar
     )
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson qualified as Aeson
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes)
+import Data.Tagged (Tagged (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (getCurrentTime)
 import Network.HTTP.Types
     ( ResponseHeaders
     , status200
-    , status201
-    , status204
-    , status400
-    , status404
-    , status500
     )
 import Network.Wai
     ( Application
     , Middleware
     , mapResponseHeaders
-    , pathInfo
-    , requestMethod
     , responseFile
-    , responseLBS
-    , strictRequestBody
     )
-import System.Directory (doesDirectoryExist, listDirectory)
+import Servant
+    ( Handler
+    , ServerError (..)
+    , err400
+    , err404
+    , err500
+    , serve
+    , throwError
+    , (:<|>) (..)
+    )
+import System.Directory
+    ( doesDirectoryExist
+    , listDirectory
+    )
 
 -- | WAI application for the REST API and static files.
 apiApp
@@ -69,40 +77,27 @@ apiApp
     -> SessionManager
     -> Application
 apiApp baseDir staticDir mgr =
-    cors $ \req respond ->
-        case (requestMethod req, pathInfo req) of
-            ("OPTIONS", _) ->
-                respond $
-                    responseLBS status204 [] ""
-            ("POST", ["sessions"]) ->
-                handleLaunch baseDir mgr req respond
-            ("GET", ["sessions"]) ->
-                handleList mgr req respond
-            ("GET", ["worktrees"]) ->
-                handleListWorktrees baseDir req respond
-            ("GET", ["branches"]) ->
-                handleListBranches baseDir req respond
-            ("DELETE", ["branches", repo, branch]) ->
-                handleDeleteBranch
-                    baseDir
-                    repo
-                    branch
-                    req
-                    respond
-            ("DELETE", ["sessions", sid]) ->
-                handleStop
-                    baseDir
-                    mgr
-                    (SessionId sid)
-                    req
-                    respond
-            _ ->
-                respond $
-                    responseFile
-                        status200
-                        [("Content-Type", "text/html")]
-                        (staticDir <> "/index.html")
-                        Nothing
+    cors $
+        serve
+            agentApi
+            ( handleLaunch baseDir mgr
+                :<|> handleList mgr
+                :<|> handleStop baseDir mgr
+                :<|> handleListWorktrees baseDir
+                :<|> handleListBranches baseDir
+                :<|> handleDeleteBranch baseDir
+                :<|> staticFallback staticDir
+            )
+
+-- | Static file fallback — serves index.html for SPA.
+staticFallback :: FilePath -> Tagged Handler Application
+staticFallback staticDir = Tagged $ \_req respond ->
+    respond $
+        responseFile
+            status200
+            [("Content-Type", "text/html")]
+            (staticDir <> "/index.html")
+            Nothing
 
 -- | Build the main repo path from base dir and repo.
 repoPath :: FilePath -> Repo -> FilePath
@@ -113,140 +108,161 @@ repoPath baseDir Repo{repoName} =
 handleLaunch
     :: FilePath
     -> SessionManager
-    -> Application
-handleLaunch baseDir mgr req respond = do
-    body <- strictRequestBody req
-    case Aeson.decode body of
-        Nothing ->
-            respondError status400 "Invalid request body"
-        Just LaunchRequest{launchRepo, launchIssue} ->
-            do
-                let sid =
-                        mkSessionId
-                            launchRepo
-                            launchIssue
-                existing <- readTVarIO (sessions mgr)
-                case Map.lookup sid existing of
-                    Just session ->
-                        respond $
-                            responseLBS
-                                status200
-                                jsonHeaders
-                                (Aeson.encode session)
-                    Nothing ->
-                        launchSession
-                            baseDir
-                            mgr
-                            sid
-                            launchRepo
-                            launchIssue
-  where
-    respondError status msg =
-        respond $
-            responseLBS
-                status
-                jsonHeaders
-                (Aeson.encode $ errorJson msg)
-
-    launchSession baseDir' mgr' sid repo issue = do
-        let tmuxName = mkTmuxName repo issue
-            worktree =
-                mkWorktreePath baseDir' repo issue
-        now <- getCurrentTime
-        let prompt = claudePrompt repo issue
-            session =
-                Session
-                    { sessionId = sid
-                    , sessionRepo = repo
-                    , sessionIssue = issue
-                    , sessionWorktree = worktree
-                    , sessionTmuxName = tmuxName
-                    , sessionState = Creating
-                    , sessionCreatedAt = now
-                    , sessionPrompt = prompt
-                    , sessionLastActivity = now
-                    }
-        atomically $ do
-            m <- readTVar (sessions mgr')
-            writeTVar (sessions mgr') $
-                Map.insert sid session m
-        result <- runLaunchSteps tmuxName worktree
-        case result of
-            Left reason -> do
-                setSessionState
-                    mgr'
+    -> LaunchRequest
+    -> Handler Aeson.Value
+handleLaunch baseDir mgr LaunchRequest{launchRepo, launchIssue} =
+    do
+        let sid = mkSessionId launchRepo launchIssue
+        existing <- liftIO $ readTVarIO (sessions mgr)
+        case Map.lookup sid existing of
+            Just session ->
+                pure (Aeson.toJSON session)
+            Nothing ->
+                launchSession
+                    baseDir
+                    mgr
                     sid
-                    (Failed reason)
-                respond $
-                    responseLBS
-                        status500
-                        jsonHeaders
-                        (Aeson.encode $ errorJson reason)
+                    launchRepo
+                    launchIssue
+
+-- | Internal: create and launch a new session.
+launchSession
+    :: FilePath
+    -> SessionManager
+    -> SessionId
+    -> Repo
+    -> Int
+    -> Handler Aeson.Value
+launchSession baseDir mgr sid repo issue = do
+    let tmuxName = mkTmuxName repo issue
+        worktree = mkWorktreePath baseDir repo issue
+    now <- liftIO getCurrentTime
+    let prompt = claudePrompt repo issue
+        session =
+            Session
+                { sessionId = sid
+                , sessionRepo = repo
+                , sessionIssue = issue
+                , sessionWorktree = worktree
+                , sessionTmuxName = tmuxName
+                , sessionState = Creating
+                , sessionCreatedAt = now
+                , sessionPrompt = prompt
+                , sessionLastActivity = now
+                }
+    liftIO $
+        atomically $ do
+            m <- readTVar (sessions mgr)
+            writeTVar (sessions mgr) $
+                Map.insert sid session m
+    result <- liftIO $ runLaunchSteps tmuxName worktree
+    case result of
+        Left reason -> do
+            liftIO $
+                setSessionState mgr sid (Failed reason)
+            throwError
+                err500
+                    { errBody =
+                        Aeson.encode $ errorJson reason
+                    , errHeaders = jsonHeaders
+                    }
+        Right () -> do
+            liftIO $ setSessionState mgr sid Running
+            pure $
+                Aeson.toJSON
+                    session{sessionState = Running}
+  where
+    runLaunchSteps tmuxName' worktree' = do
+        wtResult <-
+            Worktree.createWorktree
+                (repoPath baseDir repo)
+                worktree'
+                ( "feat/issue-"
+                    <> T.pack (show issue)
+                )
+        case wtResult of
+            Left e -> pure (Left e)
             Right () -> do
-                setSessionState mgr' sid Running
-                respond $
-                    responseLBS
-                        status201
-                        jsonHeaders
-                        ( Aeson.encode
-                            session
-                                { sessionState =
-                                    Running
-                                }
-                        )
-      where
-        runLaunchSteps tmuxName' worktree' = do
-            wtResult <-
-                Worktree.createWorktree
-                    (repoPath baseDir' repo)
-                    worktree'
-                    ( "feat/issue-"
-                        <> T.pack (show issue)
-                    )
-            case wtResult of
-                Left e -> pure (Left e)
-                Right () -> do
-                    tmResult <-
-                        Tmux.createSession
+                tmResult <-
+                    Tmux.createSession
+                        tmuxName'
+                        worktree'
+                case tmResult of
+                    Left e -> pure (Left e)
+                    Right () ->
+                        Tmux.sendKeys
                             tmuxName'
-                            worktree'
-                    case tmResult of
-                        Left e -> pure (Left e)
-                        Right () ->
-                            Tmux.sendKeys
-                                tmuxName'
-                                ( "claude --dangerously-skip-permissions "
-                                    <> claudePrompt
-                                        repo
-                                        issue
-                                )
+                            ( "claude --dangerously-skip-permissions "
+                                <> claudePrompt
+                                    repo
+                                    issue
+                            )
 
 -- | List all active sessions.
 handleList
     :: SessionManager
-    -> Application
-handleList mgr _req respond = do
-    m <- readTVarIO (sessions mgr)
-    respond $
-        responseLBS
-            status200
-            jsonHeaders
-            (Aeson.encode $ Map.elems m)
+    -> Handler [Session]
+handleList mgr = do
+    m <- liftIO $ readTVarIO (sessions mgr)
+    pure $ Map.elems m
+
+-- | Stop a session and clean up resources.
+handleStop
+    :: FilePath
+    -> SessionManager
+    -> Text
+    -> Handler Aeson.Value
+handleStop baseDir mgr sidText = do
+    let sid = SessionId sidText
+    m <- liftIO $ readTVarIO (sessions mgr)
+    case Map.lookup sid m of
+        Nothing ->
+            throwError
+                err404
+                    { errBody =
+                        Aeson.encode $
+                            errorJson
+                                ( "Session "
+                                    <> unSessionId sid
+                                    <> " not found"
+                                )
+                    , errHeaders = jsonHeaders
+                    }
+        Just session -> do
+            _ <-
+                liftIO $
+                    Tmux.killSession
+                        (sessionTmuxName session)
+            _ <-
+                liftIO $
+                    Worktree.removeWorktree
+                        ( repoPath
+                            baseDir
+                            (sessionRepo session)
+                        )
+                        (sessionWorktree session)
+            liftIO $
+                atomically $ do
+                    current <- readTVar (sessions mgr)
+                    writeTVar (sessions mgr) $
+                        Map.delete sid current
+            pure $
+                Aeson.object
+                    [
+                        ( "status"
+                        , Aeson.String "stopped"
+                        )
+                    ]
 
 -- | List all worktree directories on disk.
 handleListWorktrees
     :: FilePath
-    -> Application
-handleListWorktrees baseDir _req respond = do
-    entries <- listDirectory baseDir
-    worktrees <-
+    -> Handler [WorktreeInfo]
+handleListWorktrees baseDir = do
+    entries <- liftIO $ listDirectory baseDir
+    liftIO $
         catMaybes
             <$> mapM (toWorktreeInfo baseDir) entries
-    respond $
-        responseLBS
-            status200
-            jsonHeaders
-            (Aeson.encode worktrees)
 
 {- | Try to build a 'WorktreeInfo' from a directory name.
 
@@ -297,98 +313,39 @@ parseWorktreeName name =
                 then Nothing
                 else Just (repoName, issue)
 
--- | Stop a session and clean up resources.
-handleStop
-    :: FilePath
-    -> SessionManager
-    -> SessionId
-    -> Application
-handleStop baseDir mgr sid _req respond = do
-    m <- readTVarIO (sessions mgr)
-    case Map.lookup sid m of
-        Nothing ->
-            respond $
-                responseLBS
-                    status404
-                    jsonHeaders
-                    ( Aeson.encode $
-                        errorJson
-                            ( "Session "
-                                <> unSessionId sid
-                                <> " not found"
-                            )
-                    )
-        Just session -> do
-            _ <-
-                Tmux.killSession
-                    (sessionTmuxName session)
-            _ <-
-                Worktree.removeWorktree
-                    ( repoPath
-                        baseDir
-                        (sessionRepo session)
-                    )
-                    (sessionWorktree session)
-            atomically $ do
-                current <- readTVar (sessions mgr)
-                writeTVar (sessions mgr) $
-                    Map.delete sid current
-            respond $
-                responseLBS
-                    status200
-                    jsonHeaders
-                    ( Aeson.encode $
-                        Aeson.object
-                            [
-                                ( "status"
-                                , Aeson.String "stopped"
-                                )
-                            ]
-                    )
-
 -- | List all local issue branches.
 handleListBranches
     :: FilePath
-    -> Application
-handleListBranches baseDir _req respond = do
-    branches <- Branch.listBranches baseDir
-    respond $
-        responseLBS
-            status200
-            jsonHeaders
-            (Aeson.encode branches)
+    -> Handler [BranchInfo]
+handleListBranches baseDir =
+    liftIO $ Branch.listBranches baseDir
 
 -- | Delete a branch locally and on the remote.
 handleDeleteBranch
     :: FilePath
     -> Text
-    -- ^ repo name
     -> Text
-    -- ^ branch name
-    -> Application
-handleDeleteBranch baseDir repo branch _req respond = do
+    -> Handler Aeson.Value
+handleDeleteBranch baseDir repo branch = do
     result <-
-        Branch.deleteBranch baseDir repo branch False
+        liftIO $
+            Branch.deleteBranch baseDir repo branch False
     case result of
         Left err ->
-            respond $
-                responseLBS
-                    status400
-                    jsonHeaders
-                    (Aeson.encode $ errorJson err)
+            throwError
+                err400
+                    { errBody =
+                        Aeson.encode $ errorJson err
+                    , errHeaders = jsonHeaders
+                    }
         Right () ->
-            respond $
-                responseLBS
-                    status200
-                    jsonHeaders
-                    ( Aeson.encode $
-                        Aeson.object
-                            [
-                                ( "status"
-                                , Aeson.String "deleted"
-                                )
-                            ]
-                    )
+            pure $
+                Aeson.object
+                    [
+                        ( "status"
+                        , Aeson.String "deleted"
+                        )
+                    ]
 
 -- | Update session state in the registry.
 setSessionState

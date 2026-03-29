@@ -36,7 +36,7 @@ import System.Process
 listBranches :: FilePath -> IO [BranchInfo]
 listBranches baseDir = do
     entries <- listDirectory baseDir
-    fmap concat $ mapM (repoBranches baseDir) entries
+    concat <$> mapM (repoBranches baseDir) entries
 
 -- | Delete a branch locally and on the remote.
 deleteBranch
