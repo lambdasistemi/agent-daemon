@@ -26,7 +26,7 @@ import Control.Concurrent.STM
     ( TVar
     , atomically
     , newTVarIO
-    , readTVarIO
+    , readTVar
     , writeTVar
     )
 import Control.Exception (SomeException, try)
@@ -92,6 +92,30 @@ spawnStructured workDir mResumeId = do
         stdout = P.getStdout process
     hSetBuffering stdin LineBuffering
     hSetBuffering stdout LineBuffering
+    -- Send init control request (required by
+    -- --input-format stream-json)
+    let initReq =
+            Aeson.object
+                [ ("type", Aeson.String "control_request")
+                ,
+                    ( "request_id"
+                    , Aeson.String "req_init"
+                    )
+                ,
+                    ( "request"
+                    , Aeson.object
+                        [
+                            ( "subtype"
+                            , Aeson.String "initialize"
+                            )
+                        , ("hooks", Aeson.object [])
+                        , ("agents", Aeson.object [])
+                        ]
+                    )
+                ]
+    TIO.hPutStrLn stdin $
+        TE.decodeUtf8
+            (LBS.toStrict (Aeson.encode initReq))
     claudeId <- newTVarIO Nothing
     busy <- newTVarIO False
     pure
@@ -103,20 +127,39 @@ spawnStructured workDir mResumeId = do
             , spBusy = busy
             }
 
-{- | Read the first NDJSON line (system\/init event)
-and extract the @session_id@ field.
+{- | Read NDJSON lines until the @control_response@
+for our init request arrives. Captures @session_id@
+from the first event that contains one.
 -}
 readInitEvent :: StructuredProcess -> IO ()
-readInitEvent sp = do
-    line <- TIO.hGetLine (spStdout sp)
-    case Aeson.decode (LBS.fromStrict (TE.encodeUtf8 line)) of
-        Just (Aeson.Object obj) ->
-            case KM.lookup "session_id" obj of
-                Just (Aeson.String sid) ->
-                    atomically $
-                        writeTVar (spClaudeId sp) (Just sid)
-                _ -> pure ()
-        _ -> pure ()
+readInitEvent sp = go
+  where
+    go = do
+        result <-
+            try (TIO.hGetLine (spStdout sp))
+        case result of
+            Left (_ :: SomeException) -> pure ()
+            Right line ->
+                case Aeson.decode
+                    ( LBS.fromStrict
+                        (TE.encodeUtf8 line)
+                    ) of
+                    Just (Aeson.Object obj) -> do
+                        case KM.lookup "session_id" obj of
+                            Just (Aeson.String sid) ->
+                                atomically $
+                                    writeTVar
+                                        (spClaudeId sp)
+                                        (Just sid)
+                            _ -> pure ()
+                        if isControlResponse obj
+                            then pure ()
+                            else go
+                    _ -> go
+    isControlResponse obj =
+        KM.lookup "type" obj
+            == Just
+                (Aeson.String "control_response")
 
 {- | Send a user prompt to the structured process.
 
@@ -125,32 +168,8 @@ format and writes it to stdin.
 -}
 sendPrompt :: StructuredProcess -> Text -> IO ()
 sendPrompt sp prompt = do
-    claudeId <-
-        readTVarIO (spClaudeId sp)
-    let msg =
-            Aeson.object
-                [ ("type", Aeson.String "user")
-                ,
-                    ( "session_id"
-                    , case claudeId of
-                        Just cid -> Aeson.String cid
-                        Nothing -> Aeson.String ""
-                    )
-                ,
-                    ( "message"
-                    , Aeson.object
-                        [ ("role", Aeson.String "user")
-                        ,
-                            ( "content"
-                            , Aeson.String prompt
-                            )
-                        ]
-                    )
-                ,
-                    ( "parent_tool_use_id"
-                    , Aeson.Null
-                    )
-                ]
+    claudeId <- atomically $ readTVar (spClaudeId sp)
+    let msg = encodeUserMessage claudeId prompt
         encoded =
             TE.decodeUtf8
                 (LBS.toStrict (Aeson.encode msg))
@@ -194,7 +213,12 @@ killStructured sp = do
             P.stopProcess (spProcess sp)
     pure ()
 
--- | Build the JSON user message for a prompt.
+{- | Build the JSON user message for a prompt.
+
+Used with @--input-format stream-json@ mode. Currently
+the daemon uses plain text stdin, but this is kept for
+future use and testing.
+-}
 encodeUserMessage
     :: Maybe Text
     -- ^ claude session ID
