@@ -27,6 +27,7 @@ library
     AgentDaemon.Git
     AgentDaemon.Recovery
     AgentDaemon.Server
+    AgentDaemon.Structured
     AgentDaemon.Terminal
     AgentDaemon.Tmux
     AgentDaemon.Types

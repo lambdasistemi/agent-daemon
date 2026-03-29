@@ -18,6 +18,7 @@ import AgentDaemon.Types
     , Session (..)
     , SessionId (..)
     , SessionManager (..)
+    , SessionMode (..)
     , SessionState (..)
     )
 import Control.Concurrent.STM
@@ -127,6 +128,9 @@ recoverSession baseDir tmuxName =
                                 , sessionPrompt = ""
                                 , sessionLastActivity =
                                     now
+                                , sessionMode = Terminal
+                                , sessionClaudeId =
+                                    Nothing
                                 }
 
 {- | Parse a tmux session name into repo name and
