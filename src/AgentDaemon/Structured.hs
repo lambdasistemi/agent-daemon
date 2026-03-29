@@ -5,6 +5,11 @@ module AgentDaemon.Structured
     , sendPrompt
     , readEvents
     , killStructured
+
+      -- * Internal (exported for testing)
+    , encodeUserMessage
+    , parseInitSessionId
+    , isResultEvent
     ) where
 
 -- \|
@@ -188,3 +193,51 @@ killStructured sp = do
         try @SomeException $
             P.stopProcess (spProcess sp)
     pure ()
+
+-- | Build the JSON user message for a prompt.
+encodeUserMessage
+    :: Maybe Text
+    -- ^ claude session ID
+    -> Text
+    -- ^ prompt text
+    -> Value
+encodeUserMessage claudeId prompt =
+    Aeson.object
+        [ ("type", Aeson.String "user")
+        ,
+            ( "session_id"
+            , case claudeId of
+                Just cid -> Aeson.String cid
+                Nothing -> Aeson.String ""
+            )
+        ,
+            ( "message"
+            , Aeson.object
+                [ ("role", Aeson.String "user")
+                ,
+                    ( "content"
+                    , Aeson.String prompt
+                    )
+                ]
+            )
+        ,
+            ( "parent_tool_use_id"
+            , Aeson.Null
+            )
+        ]
+
+-- | Extract @session_id@ from a system\/init JSON event.
+parseInitSessionId :: Value -> Maybe Text
+parseInitSessionId (Aeson.Object obj) =
+    case KM.lookup "session_id" obj of
+        Just (Aeson.String sid) -> Just sid
+        _ -> Nothing
+parseInitSessionId _ = Nothing
+
+-- | Check whether a JSON event is a @result@ event.
+isResultEvent :: Value -> Bool
+isResultEvent (Aeson.Object obj) =
+    case KM.lookup "type" obj of
+        Just (Aeson.String "result") -> True
+        _ -> False
+isResultEvent _ = False
