@@ -22,6 +22,7 @@ library
   exposed-modules:
     AgentDaemon
     AgentDaemon.Api
+    AgentDaemon.Api.Types
     AgentDaemon.Branch
     AgentDaemon.Recovery
     AgentDaemon.Server
@@ -39,7 +40,10 @@ library
     , http-types      >=0.12 && <0.13
     , posix-pty       >=0.2  && <0.3
     , process         >=1.6  && <1.7
+    , servant         >=0.20 && <0.21
+    , servant-server  >=0.20 && <0.21
     , stm             >=2.5  && <2.6
+    , tagged          >=0.8  && <0.9
     , text            >=2.0  && <2.2
     , time            >=1.12 && <1.15
     , wai             >=3.2  && <3.3
