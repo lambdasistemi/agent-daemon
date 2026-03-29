@@ -7,17 +7,30 @@ module AgentDaemon.StructuredSpec (spec) where
 -- License     : MIT
 
 import AgentDaemon.Structured
-    ( encodeUserMessage
+    ( StructuredProcess (..)
+    , encodeUserMessage
     , isResultEvent
+    , killStructured
     , parseInitSessionId
+    , readEvents
+    , readInitEvent
+    , sendPrompt
+    , spawnStructured
     )
+import Control.Concurrent.STM (readTVarIO)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KM
+import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.Maybe (isJust)
+import Data.Text qualified as T
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process (callProcess)
 import Test.Hspec
     ( Spec
     , describe
     , it
     , shouldBe
+    , shouldSatisfy
     )
 
 spec :: Spec
@@ -25,6 +38,7 @@ spec = do
     describe "encodeUserMessage" encodeSpec
     describe "parseInitSessionId" parseInitSpec
     describe "isResultEvent" isResultSpec
+    describe "claude integration" claudeIntegrationSpec
 
 encodeSpec :: Spec
 encodeSpec = do
@@ -150,6 +164,133 @@ isResultSpec = do
     it "rejects missing type" $ do
         let event = Aeson.object [("data", Aeson.Null)]
         isResultEvent event `shouldBe` False
+
+-- ----------------------------------------------------------
+-- Integration tests against real claude CLI
+-- ----------------------------------------------------------
+
+claudeIntegrationSpec :: Spec
+claudeIntegrationSpec = do
+    it "spawns, captures session ID from init event" $
+        withTempWorktree $ \dir -> do
+            sp <- spawnStructured dir Nothing
+            readInitEvent sp
+            claudeId <- readTVarIO (spClaudeId sp)
+            killStructured sp
+            claudeId `shouldSatisfy` isJust
+
+    it "sends prompt and receives result event" $
+        withTempWorktree $ \dir -> do
+            sp <- spawnStructured dir Nothing
+            readInitEvent sp
+            sendPrompt sp "What is 2+2? Reply only the number."
+            events <- collectAll sp
+            killStructured sp
+            let types = map eventType events
+            types `shouldSatisfy` elem "result"
+
+    it "result contains non-empty text" $
+        withTempWorktree $ \dir -> do
+            sp <- spawnStructured dir Nothing
+            readInitEvent sp
+            sendPrompt sp "Say hello in one word."
+            events <- collectAll sp
+            killStructured sp
+            let results =
+                    filter isResultEvent events
+            results `shouldSatisfy` (not . null)
+            case results of
+                (Aeson.Object obj : _) ->
+                    case KM.lookup "result" obj of
+                        Just (Aeson.String t) ->
+                            t `shouldSatisfy` (not . null . show)
+                        _ -> fail "result field missing"
+                _ -> fail "expected object"
+
+    it "resumes conversation with --resume" $
+        withTempWorktree $ \dir -> do
+            -- First conversation
+            sp1 <- spawnStructured dir Nothing
+            readInitEvent sp1
+            claudeId <- readTVarIO (spClaudeId sp1)
+            sendPrompt sp1 "Remember: the secret word is banana."
+            _ <- collectAll sp1
+            killStructured sp1
+            -- Resume
+            sp2 <- spawnStructured dir claudeId
+            readInitEvent sp2
+            sendPrompt sp2 "What is the secret word? Reply only the word."
+            events <- collectAll sp2
+            killStructured sp2
+            let results =
+                    [ t
+                    | Aeson.Object obj <- events
+                    , Just (Aeson.String t) <- [KM.lookup "result" obj]
+                    ]
+            case results of
+                (t : _) ->
+                    T.unpack t
+                        `shouldSatisfy` hasSubstring "banana"
+                [] -> fail "no result text"
+
+-- | Create a temp directory with a git repo for worktree.
+withTempWorktree :: (FilePath -> IO a) -> IO a
+withTempWorktree action =
+    withSystemTempDirectory "claude-test" $ \dir -> do
+        callProcess "git" ["init", dir]
+        callProcess
+            "git"
+            [ "-C"
+            , dir
+            , "config"
+            , "user.name"
+            , "Test"
+            ]
+        callProcess
+            "git"
+            [ "-C"
+            , dir
+            , "config"
+            , "user.email"
+            , "test@test.com"
+            ]
+        callProcess
+            "git"
+            [ "-C"
+            , dir
+            , "commit"
+            , "--allow-empty"
+            , "-m"
+            , "init"
+            ]
+        action dir
+
+-- | Collect all events until result or EOF.
+collectAll :: StructuredProcess -> IO [Aeson.Value]
+collectAll sp = do
+    ref <- newIORef []
+    readEvents sp $ \val -> do
+        modifyIORef' ref (val :)
+        pure (not (isResultEvent val))
+    reverse <$> readIORef ref
+
+-- | Extract the "type" field from a JSON value.
+eventType :: Aeson.Value -> String
+eventType (Aeson.Object obj) =
+    case KM.lookup "type" obj of
+        Just (Aeson.String t) -> T.unpack t
+        _ -> "unknown"
+eventType _ = "unknown"
+
+-- | Check if a text contains a substring.
+hasSubstring :: String -> String -> Bool
+hasSubstring needle haystack =
+    needle `elem` words (map toLower haystack)
+  where
+    toLower c
+        | c >= 'A' && c <= 'Z' =
+            toEnum (fromEnum c + 32)
+        | otherwise = c
 
 -- | Helper: extract a text field from a JSON object.
 fieldText :: Aeson.Key -> Aeson.Value -> Maybe Aeson.Value
