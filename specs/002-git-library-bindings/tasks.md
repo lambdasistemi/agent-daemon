@@ -19,8 +19,8 @@
 
 **Purpose**: Add dependency and define shared types
 
-- [ ] T001 Add `typed-process` dependency to `agent-daemon.cabal` build-depends
-- [ ] T002 Define `GitError` type in `src/AgentDaemon/Types.hs` with fields: `gitCommand :: Text`, `gitExitCode :: Int`, `gitStderr :: Text`, `gitRepoPath :: FilePath`
+- [x] T001 Add `typed-process` dependency to `agent-daemon.cabal` build-depends
+- [x] T002 Define `GitError` type in `src/AgentDaemon/Types.hs` with fields: `gitCommand :: Text`, `gitExitCode :: Int`, `gitStderr :: Text`, `gitRepoPath :: FilePath`
 
 ---
 
@@ -30,9 +30,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Create `src/AgentDaemon/Git.hs` with `runGit :: FilePath -> [String] -> IO (Either GitError ())` using `typed-process` — run a git command, discard stdout, capture stderr on failure
-- [ ] T004 Add `readGit :: FilePath -> [String] -> IO (Either GitError Text)` to `src/AgentDaemon/Git.hs` — run a git command, return stdout as Text, capture stderr on failure
-- [ ] T005 Expose `AgentDaemon.Git` in `agent-daemon.cabal` exposed-modules list
+- [x] T003 Create `src/AgentDaemon/Git.hs` with `runGit :: FilePath -> [String] -> IO (Either GitError ())` using `typed-process` — run a git command, discard stdout, capture stderr on failure
+- [x] T004 Add `readGit :: FilePath -> [String] -> IO (Either GitError Text)` to `src/AgentDaemon/Git.hs` — run a git command, return stdout as Text, capture stderr on failure
+- [x] T005 Expose `AgentDaemon.Git` in `agent-daemon.cabal` exposed-modules list
 
 **Checkpoint**: Foundation ready — `runGit` and `readGit` are the only two primitives needed by all stories
 
@@ -46,11 +46,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Add `defaultBranch :: FilePath -> IO Text` to `src/AgentDaemon/Git.hs` — read `refs/remotes/origin/HEAD` via `readGit`, parse branch name, fall back to `"main"`
-- [ ] T007 [US1] Add `fetch :: FilePath -> String -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
-- [ ] T008 [US1] Add `createWorktree :: FilePath -> FilePath -> Text -> Text -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs` — wraps `git worktree add` with new-branch and existing-branch fallback
-- [ ] T009 [US1] Add `removeWorktree :: FilePath -> FilePath -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
-- [ ] T010 [US1] Refactor `src/AgentDaemon/Worktree.hs` to import and call `AgentDaemon.Git` functions, remove local `runGit`, `defaultBranch`, and `System.Process` imports
+- [x] T006 [US1] Add `defaultBranch :: FilePath -> IO Text` to `src/AgentDaemon/Git.hs` — read `refs/remotes/origin/HEAD` via `readGit`, parse branch name, fall back to `"main"`
+- [x] T007 [US1] Add `fetch :: FilePath -> String -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
+- [x] T008 [US1] Add `createWorktree :: FilePath -> FilePath -> Text -> Text -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs` — wraps `git worktree add` with new-branch and existing-branch fallback
+- [x] T009 [US1] Add `removeWorktree :: FilePath -> FilePath -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
+- [x] T010 [US1] Refactor `src/AgentDaemon/Worktree.hs` to import and call `AgentDaemon.Git` functions, remove local `runGit`, `defaultBranch`, and `System.Process` imports
 
 **Checkpoint**: Worktree.hs has zero `System.Process` imports. E2e tests pass.
 
@@ -64,12 +64,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Add `listBranchesByPattern :: FilePath -> String -> IO (Either GitError [String])` to `src/AgentDaemon/Git.hs` — wraps `git branch --list <pattern> --format=%(refname:short)`
-- [ ] T012 [US2] Add `revParseVerify :: FilePath -> String -> IO Bool` to `src/AgentDaemon/Git.hs` — wraps `git rev-parse --verify`
-- [ ] T013 [US2] Add `syncStatus :: FilePath -> String -> IO SyncStatus` to `src/AgentDaemon/Git.hs` — wraps `git rev-list --left-right --count`, parses ahead/behind
-- [ ] T014 [P] [US2] Add `deleteBranchLocal :: FilePath -> String -> Bool -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
-- [ ] T015 [P] [US2] Add `deleteBranchRemote :: FilePath -> String -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
-- [ ] T016 [US2] Refactor `src/AgentDaemon/Branch.hs` to import and call `AgentDaemon.Git` functions, remove local `runGit`, `quietGit`, and `System.Process` imports
+- [x] T011 [US2] Add `listBranchesByPattern :: FilePath -> String -> IO (Either GitError [String])` to `src/AgentDaemon/Git.hs` — wraps `git branch --list <pattern> --format=%(refname:short)`
+- [x] T012 [US2] Add `revParseVerify :: FilePath -> String -> IO Bool` to `src/AgentDaemon/Git.hs` — wraps `git rev-parse --verify`
+- [x] T013 [US2] Add `syncStatus :: FilePath -> String -> IO SyncStatus` to `src/AgentDaemon/Git.hs` — wraps `git rev-list --left-right --count`, parses ahead/behind
+- [x] T014 [P] [US2] Add `deleteBranchLocal :: FilePath -> String -> Bool -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
+- [x] T015 [P] [US2] Add `deleteBranchRemote :: FilePath -> String -> IO (Either GitError ())` to `src/AgentDaemon/Git.hs`
+- [x] T016 [US2] Refactor `src/AgentDaemon/Branch.hs` to import and call `AgentDaemon.Git` functions, remove local `runGit`, `quietGit`, and `System.Process` imports
 
 **Checkpoint**: Branch.hs has zero `System.Process` imports. E2e tests pass.
 
@@ -83,8 +83,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Add `getRemoteUrl :: FilePath -> String -> IO (Either GitError Text)` to `src/AgentDaemon/Git.hs` — wraps `git remote get-url`
-- [ ] T018 [US3] Refactor `src/AgentDaemon/Recovery.hs` to import and call `AgentDaemon.Git.getRemoteUrl`, remove `System.Process` import
+- [x] T017 [US3] Add `getRemoteUrl :: FilePath -> String -> IO (Either GitError Text)` to `src/AgentDaemon/Git.hs` — wraps `git remote get-url`
+- [x] T018 [US3] Refactor `src/AgentDaemon/Recovery.hs` to import and call `AgentDaemon.Git.getRemoteUrl`, remove `System.Process` import
 
 **Checkpoint**: Recovery.hs has zero `System.Process` imports for git operations. E2e tests pass.
 
@@ -94,9 +94,9 @@
 
 **Purpose**: Clean up and verify zero git subprocess calls remain
 
-- [ ] T019 Remove `process` from library build-depends in `agent-daemon.cabal` (keep in test-suite if needed by TerminalSpec)
-- [ ] T020 Verify zero `callProcess`, `readProcess`, `readCreateProcess` git calls remain — grep codebase, build with `-Wall -Werror`
-- [ ] T021 Run full e2e test suite, confirm all tests pass
+- [x] T019 ~~Remove `process` from library build-depends~~ — kept: `Tmux.hs` and `Recovery.hs` (tmux calls) still need it
+- [x] T020 Verify zero `callProcess`, `readProcess`, `readCreateProcess` git calls remain — grep codebase, build with `-Wall -Werror`
+- [x] T021 Run full e2e test suite, confirm all tests pass
 
 ---
 

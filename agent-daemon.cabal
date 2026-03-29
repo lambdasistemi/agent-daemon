@@ -24,6 +24,7 @@ library
     AgentDaemon.Api
     AgentDaemon.Api.Types
     AgentDaemon.Branch
+    AgentDaemon.Git
     AgentDaemon.Recovery
     AgentDaemon.Server
     AgentDaemon.Terminal
@@ -42,6 +43,7 @@ library
     , process         >=1.6  && <1.7
     , servant         >=0.20 && <0.21
     , servant-server  >=0.20 && <0.21
+    , typed-process   >=0.2  && <0.3
     , stm             >=2.5  && <2.6
     , tagged          >=0.8  && <0.9
     , text            >=2.0  && <2.2
