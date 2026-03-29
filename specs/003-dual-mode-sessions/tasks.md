@@ -19,11 +19,11 @@
 
 **Purpose**: Add types and extend session model
 
-- [ ] T001 Add `SessionMode` type (`Terminal | Structured`) with `ToJSON`/`FromJSON` instances to `src/AgentDaemon/Types.hs`
-- [ ] T002 Add `PromptRequest` type with `prompt :: Text` field and `FromJSON` instance to `src/AgentDaemon/Types.hs`
-- [ ] T003 Add `ModeRequest` type with `mode :: SessionMode` field and `FromJSON` instance to `src/AgentDaemon/Types.hs`
-- [ ] T004 Extend `Session` in `src/AgentDaemon/Types.hs` with `sessionMode :: SessionMode` (default `Terminal`) and `sessionClaudeId :: Maybe Text`
-- [ ] T005 Update all `Session` construction sites (Api.hs, Recovery.hs) to include `sessionMode = Terminal` and `sessionClaudeId = Nothing`
+- [x] T001 Add `SessionMode` type (`Terminal | Structured`) with `ToJSON`/`FromJSON` instances to `src/AgentDaemon/Types.hs`
+- [x] T002 Add `PromptRequest` type with `prompt :: Text` field and `FromJSON` instance to `src/AgentDaemon/Types.hs`
+- [x] T003 Add `ModeRequest` type with `mode :: SessionMode` field and `FromJSON` instance to `src/AgentDaemon/Types.hs`
+- [x] T004 Extend `Session` in `src/AgentDaemon/Types.hs` with `sessionMode :: SessionMode` (default `Terminal`) and `sessionClaudeId :: Maybe Text`
+- [x] T005 Update all `Session` construction sites (Api.hs, Recovery.hs) to include `sessionMode = Terminal` and `sessionClaudeId = Nothing`
 
 ---
 
@@ -33,13 +33,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create `src/AgentDaemon/Structured.hs` with `StructuredProcess` record type: process handle, stdin handle, stdout handle, `claudeSessionId :: TVar (Maybe Text)`, `promptInProgress :: TVar Bool`
-- [ ] T007 Implement `spawnStructured :: FilePath -> Maybe Text -> IO StructuredProcess` in `src/AgentDaemon/Structured.hs` — spawn `claude -p --output-format stream-json --input-format stream-json --verbose --dangerously-skip-permissions` with optional `--resume <id>`, capture stdin/stdout handles
-- [ ] T008 Implement `readInitEvent :: StructuredProcess -> IO ()` in `src/AgentDaemon/Structured.hs` — read the first NDJSON line (`system/init`), extract `session_id`, store in `claudeSessionId` TVar
-- [ ] T009 Implement `sendPrompt :: StructuredProcess -> Text -> IO ()` in `src/AgentDaemon/Structured.hs` — encode user message as JSON, write to stdin with newline
-- [ ] T010 Implement `readEvents :: StructuredProcess -> (Value -> IO Bool) -> IO ()` in `src/AgentDaemon/Structured.hs` — read NDJSON lines from stdout, call callback per event, stop when callback returns False (on `result` event)
-- [ ] T011 Implement `killStructured :: StructuredProcess -> IO ()` in `src/AgentDaemon/Structured.hs` — terminate the process, clean up handles
-- [ ] T012 Expose `AgentDaemon.Structured` in `agent-daemon.cabal` exposed-modules list
+- [x] T006 Create `src/AgentDaemon/Structured.hs` with `StructuredProcess` record type: process handle, stdin handle, stdout handle, `claudeSessionId :: TVar (Maybe Text)`, `promptInProgress :: TVar Bool`
+- [x] T007 Implement `spawnStructured :: FilePath -> Maybe Text -> IO StructuredProcess` in `src/AgentDaemon/Structured.hs` — spawn `claude -p --output-format stream-json --input-format stream-json --verbose --dangerously-skip-permissions` with optional `--resume <id>`, capture stdin/stdout handles
+- [x] T008 Implement `readInitEvent :: StructuredProcess -> IO ()` in `src/AgentDaemon/Structured.hs` — read the first NDJSON line (`system/init`), extract `session_id`, store in `claudeSessionId` TVar
+- [x] T009 Implement `sendPrompt :: StructuredProcess -> Text -> IO ()` in `src/AgentDaemon/Structured.hs` — encode user message as JSON, write to stdin with newline
+- [x] T010 Implement `readEvents :: StructuredProcess -> (Value -> IO Bool) -> IO ()` in `src/AgentDaemon/Structured.hs` — read NDJSON lines from stdout, call callback per event, stop when callback returns False (on `result` event)
+- [x] T011 Implement `killStructured :: StructuredProcess -> IO ()` in `src/AgentDaemon/Structured.hs` — terminate the process, clean up handles
+- [x] T012 Expose `AgentDaemon.Structured` in `agent-daemon.cabal` exposed-modules list
 
 **Checkpoint**: Structured process can be spawned, receive prompts, stream events, and be killed programmatically
 
@@ -53,12 +53,12 @@
 
 ### Implementation for User Stories 1 & 3
 
-- [ ] T013 [US1] [US3] Update `ToJSON Session` in `src/AgentDaemon/Types.hs` to include `mode` and `claudeId` fields in JSON output
-- [ ] T014 [US1] Add mode switch route `POST /sessions/:id/mode` accepting `ModeRequest` body to `src/AgentDaemon/Api/Types.hs`
-- [ ] T015 [US1] Implement `handleSwitchMode` in `src/AgentDaemon/Api.hs` — validate session is Running, reject if already in requested mode, reject if transitional state
-- [ ] T016 [US1] Implement terminal→structured switch in `handleSwitchMode`: send Ctrl-C to tmux to kill claude TUI, spawn structured process with `--resume`, update session mode and claude ID in TVar
-- [ ] T017 [US1] Implement structured→terminal switch in `handleSwitchMode`: kill structured process, respawn claude in tmux with `sendKeys` using `--resume`, update session mode in TVar
-- [ ] T018 [US1] Handle mode switch failures: if respawn fails after killing the old process, set session state to `Failed` with reason
+- [x] T013 [US1] [US3] Update `ToJSON Session` in `src/AgentDaemon/Types.hs` to include `mode` and `claudeId` fields in JSON output
+- [x] T014 [US1] Add mode switch route `POST /sessions/:id/mode` accepting `ModeRequest` body to `src/AgentDaemon/Api/Types.hs`
+- [x] T015 [US1] Implement `handleSwitchMode` in `src/AgentDaemon/Api.hs` — validate session is Running, reject if already in requested mode, reject if transitional state
+- [x] T016 [US1] Implement terminal→structured switch in `handleSwitchMode`: send Ctrl-C to tmux to kill claude TUI, spawn structured process with `--resume`, update session mode and claude ID in TVar
+- [x] T017 [US1] Implement structured→terminal switch in `handleSwitchMode`: kill structured process, respawn claude in tmux with `sendKeys` using `--resume`, update session mode in TVar
+- [x] T018 [US1] Handle mode switch failures: if respawn fails after killing the old process, set session state to `Failed` with reason
 
 **Checkpoint**: Mode switching works end-to-end. GET /sessions shows mode field.
 
@@ -72,10 +72,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Add prompt route `POST /sessions/:id/prompt` accepting `PromptRequest` body to `src/AgentDaemon/Api/Types.hs`
-- [ ] T020 [US2] Implement `handlePrompt` in `src/AgentDaemon/Api.hs` — validate session is in Structured mode, check `promptInProgress` flag, reject if busy or wrong mode
-- [ ] T021 [US2] Implement SSE response streaming in `handlePrompt`: set `promptInProgress = True`, write prompt to stdin via `sendPrompt`, read events via `readEvents`, forward each as SSE `data:` line, set `promptInProgress = False` on `result` event
-- [ ] T022 [US2] Handle edge cases in `handlePrompt`: process exit mid-prompt (set session to Failed), client disconnect (clean up promptInProgress flag)
+- [x] T019 [US2] Add prompt route `POST /sessions/:id/prompt` accepting `PromptRequest` body to `src/AgentDaemon/Api/Types.hs`
+- [x] T020 [US2] Implement `handlePrompt` in `src/AgentDaemon/Api.hs` — validate session is in Structured mode, check `promptInProgress` flag, reject if busy or wrong mode
+- [x] T021 [US2] Implement SSE response streaming in `handlePrompt`: set `promptInProgress = True`, write prompt to stdin via `sendPrompt`, read events via `readEvents`, forward each as SSE `data:` line, set `promptInProgress = False` on `result` event
+- [x] T022 [US2] Handle edge cases in `handlePrompt`: process exit mid-prompt (set session to Failed), client disconnect (clean up promptInProgress flag)
 
 **Checkpoint**: Full prompt→response cycle works via SSE. Concurrent prompts are rejected.
 
@@ -85,11 +85,11 @@
 
 **Purpose**: Recovery, tests, edge cases
 
-- [ ] T023 Update `recoverSessions` in `src/AgentDaemon/Recovery.hs` to set recovered sessions to `Terminal` mode (existing behavior preserved)
-- [ ] T024 Add integration tests for mode switching in `test/AgentDaemon/StructuredSpec.hs` — spawn structured process, send prompt, verify events, kill
-- [ ] T025 Add integration tests for prompt rejection in wrong mode in `test/AgentDaemon/StructuredSpec.hs`
-- [ ] T026 Add `AgentDaemon.StructuredSpec` to `agent-daemon.cabal` test-suite other-modules
-- [ ] T027 Format all modified files with fourmolu, build with `-Wall -Werror`
+- [x] T023 Update `recoverSessions` in `src/AgentDaemon/Recovery.hs` to set recovered sessions to `Terminal` mode (existing behavior preserved)
+- [x] T024 Add integration tests for mode switching in `test/AgentDaemon/StructuredSpec.hs` — spawn structured process, send prompt, verify events, kill
+- [x] T025 Add integration tests for prompt rejection in wrong mode in `test/AgentDaemon/StructuredSpec.hs`
+- [x] T026 Add `AgentDaemon.StructuredSpec` to `agent-daemon.cabal` test-suite other-modules
+- [x] T027 Format all modified files with fourmolu, build with `-Wall -Werror`
 
 ---
 

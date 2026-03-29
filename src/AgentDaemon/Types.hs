@@ -4,9 +4,12 @@ module AgentDaemon.Types
     ( SessionId (..)
     , Repo (..)
     , SessionState (..)
+    , SessionMode (..)
     , Session (..)
     , SessionManager (..)
     , LaunchRequest (..)
+    , PromptRequest (..)
+    , ModeRequest (..)
     , WorktreeInfo (..)
     , BranchInfo (..)
     , SyncStatus (..)
@@ -84,6 +87,25 @@ instance FromJSON Repo where
 instance ToJSON Repo where
     toJSON = genericToJSON stripPrefix
 
+-- | How the claude process runs inside a session.
+data SessionMode
+    = -- | TUI mode (interactive terminal)
+      Terminal
+    | -- | stream-json mode (structured I/O)
+      Structured
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON SessionMode where
+    toJSON Terminal = Aeson.String "terminal"
+    toJSON Structured = Aeson.String "structured"
+
+instance FromJSON SessionMode where
+    parseJSON = Aeson.withText "SessionMode" $ \t ->
+        case t of
+            "terminal" -> pure Terminal
+            "structured" -> pure Structured
+            _ -> fail "expected terminal or structured"
+
 -- | Current state of an agent session.
 data SessionState
     = -- | worktree and tmux being created
@@ -137,6 +159,10 @@ data Session = Session
     -- ^ initial prompt sent to Claude
     , sessionLastActivity :: UTCTime
     -- ^ last terminal I/O timestamp
+    , sessionMode :: SessionMode
+    -- ^ current process mode
+    , sessionClaudeId :: Maybe Text
+    -- ^ claude conversation UUID for @--resume@
     }
     deriving stock (Eq, Show, Generic)
 
@@ -164,6 +190,30 @@ data LaunchRequest = LaunchRequest
 
 instance FromJSON LaunchRequest where
     parseJSON = genericParseJSON stripPrefix
+
+-- | Request to send a prompt to a structured session.
+newtype PromptRequest = PromptRequest
+    { promptText :: Text
+    -- ^ the prompt content
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON PromptRequest where
+    parseJSON =
+        Aeson.withObject "PromptRequest" $ \o ->
+            PromptRequest <$> o Aeson..: "prompt"
+
+-- | Request to switch session mode.
+newtype ModeRequest = ModeRequest
+    { modeTarget :: SessionMode
+    -- ^ the mode to switch to
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON ModeRequest where
+    parseJSON =
+        Aeson.withObject "ModeRequest" $ \o ->
+            ModeRequest <$> o Aeson..: "mode"
 
 -- | Build a session ID from repo name and issue number.
 mkSessionId

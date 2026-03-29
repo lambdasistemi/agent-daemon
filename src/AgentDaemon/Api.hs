@@ -14,14 +14,18 @@ module AgentDaemon.Api
 import AgentDaemon.Api.Types (agentApi)
 import AgentDaemon.Branch qualified as Branch
 import AgentDaemon.Recovery (getRepoOwner)
+import AgentDaemon.Structured qualified as Structured
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
     ( BranchInfo (..)
     , LaunchRequest (..)
+    , ModeRequest (..)
+    , PromptRequest (..)
     , Repo (..)
     , Session (..)
     , SessionId (..)
     , SessionManager (..)
+    , SessionMode (..)
     , SessionState (..)
     , WorktreeInfo (..)
     , mkSessionId
@@ -30,13 +34,16 @@ import AgentDaemon.Types
     )
 import AgentDaemon.Worktree qualified as Worktree
 import Control.Concurrent.STM
-    ( atomically
+    ( TVar
+    , atomically
+    , newTVarIO
     , readTVar
     , readTVarIO
     , writeTVar
     )
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KM
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes)
 import Data.Tagged (Tagged (..))
@@ -75,19 +82,23 @@ apiApp
     -> FilePath
     -- ^ static files directory
     -> SessionManager
-    -> Application
-apiApp baseDir staticDir mgr =
-    cors $
-        serve
-            agentApi
-            ( handleLaunch baseDir mgr
-                :<|> handleList mgr
-                :<|> handleStop baseDir mgr
-                :<|> handleListWorktrees baseDir
-                :<|> handleListBranches baseDir
-                :<|> handleDeleteBranch baseDir
-                :<|> staticFallback staticDir
-            )
+    -> IO Application
+apiApp baseDir staticDir mgr = do
+    procs <- newTVarIO Map.empty
+    pure $
+        cors $
+            serve
+                agentApi
+                ( handleLaunch baseDir mgr
+                    :<|> handleList mgr
+                    :<|> handleStop baseDir mgr procs
+                    :<|> handleSwitchMode mgr procs
+                    :<|> handlePrompt mgr procs
+                    :<|> handleListWorktrees baseDir
+                    :<|> handleListBranches baseDir
+                    :<|> handleDeleteBranch baseDir
+                    :<|> staticFallback staticDir
+                )
 
 -- | Static file fallback — serves index.html for SPA.
 staticFallback :: FilePath -> Tagged Handler Application
@@ -149,6 +160,8 @@ launchSession baseDir mgr sid repo issue = do
                 , sessionCreatedAt = now
                 , sessionPrompt = prompt
                 , sessionLastActivity = now
+                , sessionMode = Terminal
+                , sessionClaudeId = Nothing
                 }
     liftIO $
         atomically $ do
@@ -210,9 +223,10 @@ handleList mgr = do
 handleStop
     :: FilePath
     -> SessionManager
+    -> TVar (Map.Map SessionId Structured.StructuredProcess)
     -> Text
     -> Handler Aeson.Value
-handleStop baseDir mgr sidText = do
+handleStop baseDir mgr procs sidText = do
     let sid = SessionId sidText
     m <- liftIO $ readTVarIO (sessions mgr)
     case Map.lookup sid m of
@@ -229,6 +243,16 @@ handleStop baseDir mgr sidText = do
                     , errHeaders = jsonHeaders
                     }
         Just session -> do
+            -- Kill structured process if present
+            liftIO $ do
+                sp <- readTVarIO procs
+                case Map.lookup sid sp of
+                    Just p -> do
+                        Structured.killStructured p
+                        atomically $
+                            writeTVar procs $
+                                Map.delete sid sp
+                    Nothing -> pure ()
             _ <-
                 liftIO $
                     Tmux.killSession
@@ -346,6 +370,213 @@ handleDeleteBranch baseDir repo branch = do
                         , Aeson.String "deleted"
                         )
                     ]
+
+-- | Switch session between terminal and structured mode.
+handleSwitchMode
+    :: SessionManager
+    -> TVar (Map.Map SessionId Structured.StructuredProcess)
+    -> Text
+    -> ModeRequest
+    -> Handler Aeson.Value
+handleSwitchMode mgr procs sidText ModeRequest{modeTarget} = do
+    let sid = SessionId sidText
+    m <- liftIO $ readTVarIO (sessions mgr)
+    session <- case Map.lookup sid m of
+        Nothing ->
+            throwError
+                err404
+                    { errBody =
+                        Aeson.encode $ errorJson "session not found"
+                    , errHeaders = jsonHeaders
+                    }
+        Just s -> pure s
+    -- Reject if not Running
+    case sessionState session of
+        Running -> pure ()
+        _ ->
+            throwError
+                err400
+                    { errBody =
+                        Aeson.encode $
+                            errorJson "session must be running"
+                    , errHeaders = jsonHeaders
+                    }
+    -- No-op if already in target mode
+    if sessionMode session == modeTarget
+        then
+            pure $
+                Aeson.object
+                    [("status", Aeson.String "already in mode")]
+        else case modeTarget of
+            Structured -> do
+                -- Kill claude TUI in tmux
+                _ <-
+                    liftIO $
+                        Tmux.sendKeys
+                            (sessionTmuxName session)
+                            "C-c"
+                -- Spawn structured process
+                result <- liftIO $ do
+                    sp <-
+                        Structured.spawnStructured
+                            (sessionWorktree session)
+                            (sessionClaudeId session)
+                    Structured.readInitEvent sp
+                    claudeId <-
+                        readTVarIO
+                            (Structured.spClaudeId sp)
+                    atomically $ do
+                        writeTVar procs $
+                            Map.insert sid sp $
+                                Map.empty
+                        current <- readTVar (sessions mgr)
+                        writeTVar (sessions mgr) $
+                            Map.adjust
+                                ( \s ->
+                                    s
+                                        { sessionMode = Structured
+                                        , sessionClaudeId = claudeId
+                                        }
+                                )
+                                sid
+                                current
+                    pure claudeId
+                pure $
+                    Aeson.object
+                        [ ("status", Aeson.String "switched")
+                        , ("mode", Aeson.String "structured")
+                        ,
+                            ( "claudeId"
+                            , case result of
+                                Just cid -> Aeson.String cid
+                                Nothing -> Aeson.Null
+                            )
+                        ]
+            Terminal -> do
+                -- Kill structured process
+                liftIO $ do
+                    sp <- readTVarIO procs
+                    case Map.lookup sid sp of
+                        Just p -> do
+                            Structured.killStructured p
+                            atomically $
+                                writeTVar procs $
+                                    Map.delete sid sp
+                        Nothing -> pure ()
+                -- Respawn claude TUI in tmux
+                let resumeFlag = case sessionClaudeId session of
+                        Just cid ->
+                            " --resume " <> cid
+                        Nothing -> ""
+                _ <-
+                    liftIO $
+                        Tmux.sendKeys
+                            (sessionTmuxName session)
+                            ( "claude --dangerously-skip-permissions"
+                                <> resumeFlag
+                            )
+                liftIO $
+                    atomically $ do
+                        current <- readTVar (sessions mgr)
+                        writeTVar (sessions mgr) $
+                            Map.adjust
+                                (\s -> s{sessionMode = Terminal})
+                                sid
+                                current
+                pure $
+                    Aeson.object
+                        [ ("status", Aeson.String "switched")
+                        , ("mode", Aeson.String "terminal")
+                        ]
+
+-- | Send a prompt to a structured session.
+handlePrompt
+    :: SessionManager
+    -> TVar (Map.Map SessionId Structured.StructuredProcess)
+    -> Text
+    -> PromptRequest
+    -> Handler Aeson.Value
+handlePrompt mgr procs sidText PromptRequest{promptText} = do
+    let sid = SessionId sidText
+    m <- liftIO $ readTVarIO (sessions mgr)
+    session <- case Map.lookup sid m of
+        Nothing ->
+            throwError
+                err404
+                    { errBody =
+                        Aeson.encode $ errorJson "session not found"
+                    , errHeaders = jsonHeaders
+                    }
+        Just s -> pure s
+    -- Must be in structured mode
+    case sessionMode session of
+        Structured -> pure ()
+        Terminal ->
+            throwError
+                err400
+                    { errBody =
+                        Aeson.encode $
+                            errorJson
+                                "session must be in structured mode"
+                    , errHeaders = jsonHeaders
+                    }
+    -- Get the structured process
+    sp <- liftIO $ readTVarIO procs
+    proc' <- case Map.lookup sid sp of
+        Nothing ->
+            throwError
+                err500
+                    { errBody =
+                        Aeson.encode $
+                            errorJson "structured process not found"
+                    , errHeaders = jsonHeaders
+                    }
+        Just p -> pure p
+    -- Check if busy
+    busy <- liftIO $ readTVarIO (Structured.spBusy proc')
+    if busy
+        then
+            throwError
+                err400
+                    { errBody =
+                        Aeson.encode $
+                            errorJson "prompt already in progress"
+                    , errHeaders = jsonHeaders
+                    }
+        else do
+            liftIO $
+                atomically $
+                    writeTVar (Structured.spBusy proc') True
+            -- Send prompt and collect events
+            liftIO $ Structured.sendPrompt proc' promptText
+            events <- liftIO $ collectEvents proc'
+            liftIO $
+                atomically $
+                    writeTVar (Structured.spBusy proc') False
+            pure $
+                Aeson.object
+                    [ ("status", Aeson.String "completed")
+                    , ("events", Aeson.toJSON events)
+                    ]
+
+-- | Collect all events until a @result@ event.
+collectEvents
+    :: Structured.StructuredProcess -> IO [Aeson.Value]
+collectEvents proc' = do
+    ref <- newTVarIO []
+    Structured.readEvents proc' $ \val -> do
+        atomically $ do
+            xs <- readTVar ref
+            writeTVar ref (xs ++ [val])
+        let isResult = case val of
+                Aeson.Object obj ->
+                    case KM.lookup "type" obj of
+                        Just (Aeson.String "result") ->
+                            True
+                        _ -> False
+                _ -> False
+        pure (not isResult)
+    readTVarIO ref
 
 -- | Update session state in the registry.
 setSessionState
