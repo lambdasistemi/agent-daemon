@@ -83,7 +83,7 @@ withServer :: IO () -> IO ()
 withServer action = do
     mgr <- newSessionManager
     bracket
-        (forkIO $ startServer testPort "/tmp" mgr)
+        (forkIO $ startServer "*" testPort "/tmp" "static" mgr)
         killThread
         (\_ -> threadDelay 500000 >> action)
 
