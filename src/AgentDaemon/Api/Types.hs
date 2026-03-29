@@ -16,6 +16,8 @@ module AgentDaemon.Api.Types
 import AgentDaemon.Types
     ( BranchInfo (..)
     , LaunchRequest (..)
+    , ModeRequest (..)
+    , PromptRequest (..)
     , Session (..)
     , WorktreeInfo (..)
     )
@@ -44,6 +46,16 @@ type AgentApi =
         :<|> "sessions"
             :> Capture "sid" Text
             :> Delete '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "mode"
+            :> ReqBody '[JSON] ModeRequest
+            :> Post '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "prompt"
+            :> ReqBody '[JSON] PromptRequest
+            :> Post '[JSON] Value
         :<|> "worktrees"
             :> Get '[JSON] [WorktreeInfo]
         :<|> "branches"

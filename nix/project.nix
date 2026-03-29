@@ -32,6 +32,7 @@ let
 in {
   packages = {
     main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
+    tests = project.hsPkgs.agent-daemon.components.tests.e2e-tests;
     inherit static;
   };
   devShells.default = project.shell;
