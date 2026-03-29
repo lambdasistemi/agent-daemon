@@ -1,0 +1,97 @@
+name: Darwin Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: darwin-release
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    name: Build agent-daemon for aarch64-darwin
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            extra-substituters = https://paolino.cachix.org
+            extra-trusted-public-keys = paolino.cachix.org-1:ecmgO3CXdgSWA2cHlm4srknd/cLFMLmK3i3NrzeDFaE=
+
+      - name: Build
+        run: nix build -L --print-out-paths > /tmp/nix-out
+
+      - name: Bundle
+        run: |
+          mkdir -p /tmp/bundle/bin /tmp/bundle/lib
+          cp "$(cat /tmp/nix-out)/bin/agent-daemon" /tmp/bundle/bin/
+
+          otool -L /tmp/bundle/bin/agent-daemon \
+            | grep -v /usr/lib | grep -v /System | grep -v ":" \
+            | awk '{print $1}' | while read lib; do
+              libname=$(basename "$lib")
+              cp "$lib" /tmp/bundle/lib/
+              install_name_tool -change "$lib" "@executable_path/../lib/$libname" /tmp/bundle/bin/agent-daemon
+            done
+
+          echo "==> Verify:"
+          otool -L /tmp/bundle/bin/agent-daemon
+          /tmp/bundle/bin/agent-daemon --help || true
+
+      - name: Create tarball
+        run: |
+          VERSION=$(nix eval .#default.version --raw 2>/dev/null || echo "0.1.0")
+          tar czf /tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz -C /tmp/bundle .
+          shasum -a 256 /tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz
+          echo "$VERSION" > /tmp/version.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(cat /tmp/version.txt)
+          TAG="v${VERSION}"
+          TARBALL="/tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz"
+          gh release delete "$TAG" -y 2>/dev/null || true
+          gh release create "$TAG" \
+            --title "agent-daemon $TAG" \
+            --notes "aarch64-darwin release" \
+            "$TARBALL"
+
+      - name: Update homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          VERSION=$(cat /tmp/version.txt)
+          TAG="v${VERSION}"
+          TARBALL="/tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz"
+          SHA=$(shasum -a 256 "$TARBALL" | cut -d' ' -f1)
+          URL="https://github.com/lambdasistemi/agent-daemon/releases/download/${TAG}/agent-daemon-${VERSION}-aarch64-darwin.tar.gz"
+
+          printf 'class AgentDaemon < Formula\n  desc "WebSocket daemon for managing Claude Code agent sessions"\n  homepage "https://github.com/lambdasistemi/agent-daemon"\n  url "%s"\n  sha256 "%s"\n  version "%s"\n\n  def install\n    bin.install "bin/agent-daemon"\n    lib.install Dir["lib/*"]\n  end\nend\n' "$URL" "$SHA" "$VERSION" > /tmp/agent-daemon.rb
+
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/lambdasistemi/homebrew-tap.git /tmp/tap
+          mkdir -p /tmp/tap/Formula
+          cp /tmp/agent-daemon.rb /tmp/tap/Formula/agent-daemon.rb
+          cd /tmp/tap
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Formula/agent-daemon.rb
+          git diff --cached --quiet || git commit -m "update agent-daemon to ${TAG}"
+          git push
+
+      - name: Test brew install
+        run: |
+          brew tap lambdasistemi/tap
+          brew install agent-daemon
+          echo "==> Running:"
+          agent-daemon --help || true
+          echo "==> Which:"
+          which agent-daemon
+          echo "==> Libs:"
+          otool -L $(which agent-daemon)
