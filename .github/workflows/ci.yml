@@ -39,3 +39,6 @@ jobs:
 
       - name: Build
         run: nix build --quiet
+
+      - name: Test
+        run: nix shell nixpkgs#tmux --quiet --command nix run .#tests -- --skip 'Terminal relay'
