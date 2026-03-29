@@ -61,7 +61,7 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Integration tests
-        run: >-
-          nix shell nixpkgs#tmux --quiet --command
-          nix run .#tests --
-          --match 'claude integration'
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          nix shell nixpkgs#tmux --quiet --command \
+            nix run .#tests -- --match 'claude integration'
