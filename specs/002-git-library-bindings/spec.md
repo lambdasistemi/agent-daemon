@@ -1,6 +1,6 @@
 # Feature Specification: Git Library Bindings
 
-**Feature Branch**: `001-git-library-bindings`
+**Feature Branch**: `002-git-library-bindings`
 **Created**: 2026-03-29
 **Status**: Draft
 **Input**: User description: "refactor: use git/github libraries instead of shelling out"

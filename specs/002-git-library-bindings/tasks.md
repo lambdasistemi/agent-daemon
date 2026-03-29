@@ -1,6 +1,6 @@
 # Tasks: Git Library Bindings
 
-**Input**: Design documents from `/specs/001-git-library-bindings/`
+**Input**: Design documents from `/specs/002-git-library-bindings/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md
 
 **Tests**: Not explicitly requested — test tasks omitted. Existing e2e suite serves as regression gate.

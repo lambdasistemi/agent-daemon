@@ -1,7 +1,7 @@
 # Implementation Plan: Git Library Bindings
 
-**Branch**: `001-git-library-bindings` | **Date**: 2026-03-29 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/001-git-library-bindings/spec.md`
+**Branch**: `002-git-library-bindings` | **Date**: 2026-03-29 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `/specs/002-git-library-bindings/spec.md`
 
 ## Summary
 
@@ -28,7 +28,7 @@ Replace fragile `System.Process` git calls scattered across `Worktree.hs`, `Bran
 ### Documentation (this feature)
 
 ```text
-specs/001-git-library-bindings/
+specs/002-git-library-bindings/
 ├── spec.md
 ├── plan.md              # This file
 ├── research.md          # Library evaluation
