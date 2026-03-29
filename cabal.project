@@ -1,1 +1,11 @@
 packages: .
+
+allow-newer:
+  servant-server:wai-app-static
+
+source-repository-package
+  type: git
+  location: https://github.com/yesodweb/wai.git
+  tag: 63536095e64e7703d97c8b1fb89ae8417f51090b
+  --sha256: 1ynxw060qwckb4xg5scsvshv62f22i9y4agm35a08gfn8k3gpr4p
+  subdir: wai-app-static
