@@ -10,6 +10,7 @@ module AgentDaemon.Types
     , WorktreeInfo (..)
     , BranchInfo (..)
     , SyncStatus (..)
+    , GitError (..)
     , newSessionManager
     , mkSessionId
     , mkTmuxName
@@ -49,6 +50,19 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (UTCTime)
 import GHC.Generics (Generic)
+
+-- | Structured error from a git subprocess call.
+data GitError = GitError
+    { gitCommand :: Text
+    -- ^ the git subcommand (e.g. @"worktree add"@)
+    , gitExitCode :: Int
+    -- ^ process exit code
+    , gitStderr :: Text
+    -- ^ stderr output from git
+    , gitRepoPath :: FilePath
+    -- ^ repository path where the command ran
+    }
+    deriving stock (Eq, Show)
 
 -- | Unique identifier for a session, derived from repo and issue.
 newtype SessionId = SessionId {unSessionId :: Text}

@@ -13,12 +13,11 @@ module AgentDaemon.Worktree
 -- Each issue gets its own worktree branching from the
 -- repository's main branch.
 
-import Control.Exception (IOException, try)
-import Data.List (dropWhileEnd)
+import AgentDaemon.Git qualified as Git
+import AgentDaemon.Types (GitError (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import System.Directory (doesDirectoryExist)
-import System.Process (callProcess, readProcess)
 
 {- | Create a git worktree for an issue.
 
@@ -39,59 +38,22 @@ createWorktree repoPath worktreePath branch = do
     if exists
         then pure (Right ())
         else do
-            defBranch <- defaultBranch repoPath
+            defBranch <- Git.defaultBranch repoPath
             fetchResult <-
-                runGit
+                Git.fetch
                     repoPath
-                    ["fetch", "origin", defBranch]
-            case fetchResult of
+                    (T.unpack defBranch)
+            case mapErr fetchResult of
                 Left e -> pure (Left e)
                 Right () -> do
-                    newBranch <-
-                        runGit
+                    let baseRef =
+                            "origin/" <> defBranch
+                    mapErr
+                        <$> Git.createWorktree
                             repoPath
-                            [ "worktree"
-                            , "add"
-                            , worktreePath
-                            , "-b"
-                            , T.unpack branch
-                            , "origin/" <> defBranch
-                            ]
-                    case newBranch of
-                        Right () -> pure (Right ())
-                        Left _ ->
-                            runGit
-                                repoPath
-                                [ "worktree"
-                                , "add"
-                                , worktreePath
-                                , T.unpack branch
-                                ]
-
-{- | Detect the default branch by reading
-@refs/remotes/origin/HEAD@. Falls back to @"main"@.
--}
-defaultBranch :: FilePath -> IO String
-defaultBranch repoPath = do
-    result <-
-        try
-            ( readProcess
-                "git"
-                [ "-C"
-                , repoPath
-                , "symbolic-ref"
-                , "refs/remotes/origin/HEAD"
-                , "--short"
-                ]
-                ""
-            )
-    pure $ case result of
-        Right out ->
-            let trimmed = dropWhileEnd (== '\n') out
-            in  case drop 1 (dropWhile (/= '/') trimmed) of
-                    [] -> "main"
-                    name -> name
-        Left (_ :: IOException) -> "main"
+                            worktreePath
+                            branch
+                            baseRef
 
 -- | Remove a git worktree.
 removeWorktree
@@ -101,24 +63,14 @@ removeWorktree
     -- ^ worktree path to remove
     -> IO (Either Text ())
 removeWorktree repoPath worktreePath =
-    runGit
-        repoPath
-        [ "worktree"
-        , "remove"
-        , "--force"
-        , worktreePath
-        ]
+    mapErr <$> Git.removeWorktree repoPath worktreePath
 
--- | Run a git command, capturing failures as 'Left'.
-runGit :: FilePath -> [String] -> IO (Either Text ())
-runGit repoPath args = do
-    result <-
-        try (callProcess "git" ("-C" : repoPath : args))
-    pure $ case result of
-        Left e ->
-            Left $
-                "git "
-                    <> T.pack (unwords args)
-                    <> " failed: "
-                    <> T.pack (show (e :: IOException))
-        Right () -> Right ()
+-- | Map 'GitError' to 'Text' for backward compat.
+mapErr :: Either GitError a -> Either Text a
+mapErr (Right a) = Right a
+mapErr (Left GitError{gitCommand, gitStderr}) =
+    Left $
+        "git "
+            <> gitCommand
+            <> " failed: "
+            <> gitStderr

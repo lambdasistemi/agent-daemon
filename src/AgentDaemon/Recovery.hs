@@ -1,6 +1,7 @@
 module AgentDaemon.Recovery
     ( recoverSessions
     , getRepoOwner
+    , parseOwner
     ) where
 
 -- \| Module      : AgentDaemon.Recovery
@@ -11,6 +12,7 @@ module AgentDaemon.Recovery
 -- Discovers running tmux sessions and reconstructs the
 -- in-memory session registry from them.
 
+import AgentDaemon.Git qualified as Git
 import AgentDaemon.Types
     ( Repo (..)
     , Session (..)
@@ -159,21 +161,10 @@ worktree. Falls back to @"unknown"@ if parsing fails.
 -}
 getRepoOwner :: FilePath -> IO Text
 getRepoOwner worktree = do
-    result <-
-        try
-            ( readProcess
-                "git"
-                [ "-C"
-                , worktree
-                , "remote"
-                , "get-url"
-                , "origin"
-                ]
-                ""
-            )
+    result <- Git.getRemoteUrl worktree "origin"
     pure $ case result of
-        Left (_ :: IOException) -> "unknown"
-        Right url -> parseOwner (T.strip (T.pack url))
+        Left _ -> "unknown"
+        Right url -> parseOwner url
 
 {- | Extract the owner from a git remote URL.
 
