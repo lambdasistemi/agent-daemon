@@ -18,6 +18,9 @@ module AgentDaemon.Git
 
       -- * Remote operations
     , getRemoteUrl
+
+      -- * Internal (exported for testing)
+    , parseSyncCounts
     ) where
 
 -- \|

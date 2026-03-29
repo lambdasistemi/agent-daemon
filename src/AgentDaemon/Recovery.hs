@@ -1,6 +1,7 @@
 module AgentDaemon.Recovery
     ( recoverSessions
     , getRepoOwner
+    , parseOwner
     ) where
 
 -- \| Module      : AgentDaemon.Recovery
