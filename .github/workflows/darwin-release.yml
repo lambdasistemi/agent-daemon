@@ -36,7 +36,7 @@ jobs:
             | awk '{print $1}' | while read lib; do
               libname=$(basename "$lib")
               cp "$lib" /tmp/bundle/lib/
-              install_name_tool -change "$lib" "@executable_path/../lib/$libname" /tmp/bundle/bin/agent-daemon
+              install_name_tool -change "$lib" "@executable_path/../libexec/lib/$libname" /tmp/bundle/bin/agent-daemon
             done
 
           echo "==> Verify:"
@@ -73,7 +73,7 @@ jobs:
           SHA=$(shasum -a 256 "$TARBALL" | cut -d' ' -f1)
           URL="https://github.com/lambdasistemi/agent-daemon/releases/download/${TAG}/agent-daemon-${VERSION}-aarch64-darwin.tar.gz"
 
-          printf 'class AgentDaemon < Formula\n  desc "WebSocket daemon for managing Claude Code agent sessions"\n  homepage "https://github.com/lambdasistemi/agent-daemon"\n  url "%s"\n  sha256 "%s"\n  version "%s"\n\n  def install\n    bin.install "bin/agent-daemon"\n    lib.install Dir["lib/*"]\n  end\nend\n' "$URL" "$SHA" "$VERSION" > /tmp/agent-daemon.rb
+          printf 'class AgentDaemon < Formula\n  desc "WebSocket daemon for managing Claude Code agent sessions"\n  homepage "https://github.com/lambdasistemi/agent-daemon"\n  url "%s"\n  sha256 "%s"\n  version "%s"\n\n  def install\n    bin.install "bin/agent-daemon"\n    (libexec/"lib").install Dir["lib/*"]\n  end\nend\n' "$URL" "$SHA" "$VERSION" > /tmp/agent-daemon.rb
 
           git clone https://x-access-token:${TAP_TOKEN}@github.com/lambdasistemi/homebrew-tap.git /tmp/tap
           mkdir -p /tmp/tap/Formula
