@@ -77,6 +77,7 @@ jobs:
 
       - name: Integration tests
         run: |
+          export HOME=/home/paolino
           export PATH="/run/current-system/sw/bin:$PATH"
           nix shell nixpkgs#tmux --quiet --command \
             nix run .#tests -- --match 'claude integration'
