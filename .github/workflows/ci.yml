@@ -15,7 +15,7 @@ jobs:
     name: Build Gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: cachix/cachix-action@v15
         with:
           name: paolino
@@ -30,7 +30,7 @@ jobs:
     needs: build-gate
     runs-on: nixos
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: cachix/cachix-action@v15
         with:
@@ -44,7 +44,7 @@ jobs:
     name: Build (aarch64-darwin)
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: cachix/install-nix-action@v30
         with:
