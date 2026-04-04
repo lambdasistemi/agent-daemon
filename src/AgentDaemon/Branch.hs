@@ -24,7 +24,13 @@ import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
 import System.Directory (doesDirectoryExist, listDirectory)
-import System.Process (readProcess)
+import System.IO (IOMode (..), hClose, openFile)
+import System.Process
+    ( CreateProcess (..)
+    , StdStream (..)
+    , proc
+    , readCreateProcess
+    )
 
 -- | List all local issue branches across all repos.
 listBranches :: FilePath -> IO [BranchInfo]
@@ -90,21 +96,16 @@ repoBranches baseDir name = do
 listIssueBranches :: FilePath -> IO [String]
 listIssueBranches repoPath = do
     result <-
-        try
-            ( readProcess
-                "git"
-                [ "-C"
-                , repoPath
-                , "branch"
-                , "--list"
-                , "feat/issue-*"
-                , "--format=%(refname:short)"
-                ]
-                ""
-            )
+        quietGit
+            repoPath
+            [ "branch"
+            , "--list"
+            , "feat/issue-*"
+            , "--format=%(refname:short)"
+            ]
     pure $ case result of
         Right out -> filter (not . null) $ lines out
-        Left (_ :: IOException) -> []
+        Left _ -> []
 
 -- | Build a BranchInfo from a branch name.
 toBranchInfo
@@ -135,37 +136,26 @@ parseIssueBranch branch
 -- | Get sync status between local and remote branch.
 getSyncStatus :: FilePath -> String -> IO SyncStatus
 getSyncStatus repoPath branch = do
-    -- First check if remote tracking branch exists
     hasRemote <-
-        try
-            ( readProcess
-                "git"
-                [ "-C"
-                , repoPath
-                , "rev-parse"
-                , "--verify"
-                , "origin/" <> branch
-                ]
-                ""
-            )
+        quietGit
+            repoPath
+            [ "rev-parse"
+            , "--verify"
+            , "origin/" <> branch
+            ]
     case hasRemote of
-        Left (_ :: IOException) -> pure LocalOnly
+        Left _ -> pure LocalOnly
         Right _ -> do
             result <-
-                try
-                    ( readProcess
-                        "git"
-                        [ "-C"
-                        , repoPath
-                        , "rev-list"
-                        , "--left-right"
-                        , "--count"
-                        , branch <> "...origin/" <> branch
-                        ]
-                        ""
-                    )
+                quietGit
+                    repoPath
+                    [ "rev-list"
+                    , "--left-right"
+                    , "--count"
+                    , branch <> "...origin/" <> branch
+                    ]
             pure $ case result of
-                Left (_ :: IOException) -> LocalOnly
+                Left _ -> LocalOnly
                 Right out ->
                     case words (dropWhileEnd (== '\n') out) of
                         [aStr, bStr] ->
@@ -180,16 +170,28 @@ getSyncStatus repoPath branch = do
                                 _ -> LocalOnly
                         _ -> LocalOnly
 
+{- | Run a git command with stderr suppressed,
+returning stdout or an error.
+-}
+quietGit
+    :: FilePath -> [String] -> IO (Either IOException String)
+quietGit repoPath args = do
+    devNull <- openFile "/dev/null" WriteMode
+    result <-
+        try
+            ( readCreateProcess
+                (proc "git" ("-C" : repoPath : args))
+                    { std_err = UseHandle devNull
+                    }
+                ""
+            )
+    hClose devNull
+    pure result
+
 -- | Run a git command, capturing failures as 'Left'.
 runGit :: FilePath -> [String] -> IO (Either Text ())
 runGit repoPath args = do
-    result <-
-        try
-            ( readProcess
-                "git"
-                ("-C" : repoPath : args)
-                ""
-            )
+    result <- quietGit repoPath args
     pure $ case result of
         Left e ->
             Left $
