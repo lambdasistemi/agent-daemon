@@ -1,10 +1,10 @@
-# agent-daemon-issue-45 Development Guidelines
+# agent-daemon Development Guidelines
 
 Auto-generated from all feature plans. Last updated: 2026-03-29
 
 ## Active Technologies
 
-- Haskell GHC2021 (GHC 9.x via nix) + servant, servant-server (new); wai, warp, wai-websockets, aeson (existing) (001-servant-api)
+- Haskell, GHC 9.8.4 via haskell.nix + typed-process (new), aeson, warp, websockets, stm, posix-pty (002-git-library-bindings)
 
 ## Project Structure
 
