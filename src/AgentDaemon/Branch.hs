@@ -1,6 +1,7 @@
 module AgentDaemon.Branch
     ( listBranches
     , deleteBranch
+    , parseIssueBranch
     ) where
 
 -- \|
