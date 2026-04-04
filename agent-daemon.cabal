@@ -90,6 +90,9 @@ test-suite e2e-tests
   main-is:            Main.hs
   other-modules:
     AgentDaemon.ApiSpec
+    AgentDaemon.BranchSpec
+    AgentDaemon.GitSpec
+    AgentDaemon.RecoverySpec
     AgentDaemon.TerminalSpec
 
   hs-source-dirs:     test
