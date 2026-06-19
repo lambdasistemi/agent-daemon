@@ -63,9 +63,18 @@ jobs:
             --notes "aarch64-darwin release" \
             "$TARBALL"
 
+      - name: Mint a scoped tap token
+        id: tap-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: lambdasistemi
+          repositories: homebrew-tap
+
       - name: Update homebrew tap
         env:
-          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAP_TOKEN: ${{ steps.tap-token.outputs.token }}
         run: |
           VERSION=$(cat /tmp/version.txt)
           TAG="v${VERSION}"
