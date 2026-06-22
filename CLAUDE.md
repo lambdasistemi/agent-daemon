@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-03-29
 
 ## Active Technologies
+- Haskell, GHC 9.8.4 via haskell.nix + typed-process (existing), servant/servant-server, aeson, warp, websockets, stm, posix-pty (003-dual-mode-sessions)
+- N/A (in-memory TVar state) (003-dual-mode-sessions)
 
 - Haskell, GHC 9.8.4 via haskell.nix + typed-process (new), aeson, warp, websockets, stm, posix-pty (002-git-library-bindings)
 
@@ -22,6 +24,7 @@ tests/
 Haskell, GHC 9.8.4 via haskell.nix: Follow standard conventions
 
 ## Recent Changes
+- 003-dual-mode-sessions: Added Haskell, GHC 9.8.4 via haskell.nix + typed-process (existing), servant/servant-server, aeson, warp, websockets, stm, posix-pty
 
 - 002-git-library-bindings: Added Haskell, GHC 9.8.4 via haskell.nix + typed-process (new), aeson, warp, websockets, stm, posix-pty
 

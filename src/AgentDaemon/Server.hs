@@ -44,11 +44,12 @@ startServer host port baseDir staticDir mgr = do
                 Warp.setHost
                     (fromString host)
                     Warp.defaultSettings
+    app <- apiApp baseDir staticDir mgr
     Warp.runSettings settings $
         WaiWS.websocketsOr
             WS.defaultConnectionOptions
             (wsApp mgr)
-            (apiApp baseDir staticDir mgr)
+            app
 
 -- | WebSocket application that routes to terminal sessions.
 wsApp :: SessionManager -> WS.ServerApp

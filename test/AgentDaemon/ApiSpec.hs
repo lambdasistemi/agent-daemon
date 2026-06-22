@@ -104,7 +104,7 @@ withTestServer action =
         (removeDirectoryRecursive testBaseDir)
         $ do
             mgr <- newSessionManager
-            let app = apiApp testBaseDir "static" mgr
+            app <- apiApp testBaseDir "static" mgr
             Warp.testWithApplication (pure app) action
 
 -- | Run a client request against a test server.

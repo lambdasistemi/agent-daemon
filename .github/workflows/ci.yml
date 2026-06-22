@@ -40,6 +40,13 @@ jobs:
       - name: Build
         run: nix build --quiet
 
+      - name: Unit tests
+        run: >-
+          nix shell nixpkgs#tmux --quiet --command
+          nix run .#tests --
+          --skip 'Terminal relay'
+          --skip 'claude integration'
+
   build-darwin:
     name: Build (aarch64-darwin)
     runs-on: macos-14
@@ -54,3 +61,24 @@ jobs:
 
       - name: Build
         run: nix build -L
+
+  integration:
+    name: Claude Integration Tests
+    needs: build
+    runs-on: nixos
+    environment: claude-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Integration tests
+        run: |
+          export PATH="/run/current-system/sw/bin:$PATH"
+          nix shell nixpkgs#tmux --quiet --command \
+            nix run .#tests -- \
+            --match 'claude integration' \
+            --skip 'resumes conversation'
