@@ -9,26 +9,27 @@ module AgentDaemon.Api
 -- License     : MIT
 --
 -- Servant-based WAI application providing REST endpoints
--- for launching, listing, and stopping agent sessions.
+-- for listing, stopping, and controlling tmux sessions.
 
 import AgentDaemon.Api.Types (agentApi)
 import AgentDaemon.Branch qualified as Branch
-import AgentDaemon.Recovery (getRepoOwner)
+import AgentDaemon.Recovery qualified as Recovery
 import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
     ( BranchInfo (..)
-    , LaunchRequest (..)
+    , LayoutRequest (..)
+    , PaneId (..)
+    , PaneInfo (..)
+    , PaneSplitRequest (..)
     , Repo (..)
+    , ScrollRequest (..)
     , Session (..)
     , SessionId (..)
     , SessionManager (..)
-    , SessionState (..)
+    , WindowInfo (..)
+    , WindowSelectRequest (..)
     , WorktreeInfo (..)
-    , mkSessionId
-    , mkTmuxName
-    , mkWorktreePath
     )
-import AgentDaemon.Worktree qualified as Worktree
 import Control.Concurrent.STM
     ( atomically
     , readTVar
@@ -37,21 +38,28 @@ import Control.Concurrent.STM
     )
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson qualified as Aeson
+import Data.ByteString (ByteString)
+import Data.List (intercalate, isSuffixOf)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (catMaybes)
 import Data.Tagged (Tagged (..))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time (getCurrentTime)
 import Network.HTTP.Types
     ( ResponseHeaders
+    , methodGet
+    , methodHead
     , status200
+    , status404
     )
 import Network.Wai
     ( Application
     , Middleware
     , mapResponseHeaders
+    , pathInfo
+    , requestMethod
     , responseFile
+    , responseLBS
     )
 import Servant
     ( Handler
@@ -65,6 +73,7 @@ import Servant
     )
 import System.Directory
     ( doesDirectoryExist
+    , doesFileExist
     , listDirectory
     )
 
@@ -80,139 +89,86 @@ apiApp baseDir staticDir mgr =
     cors $
         serve
             agentApi
-            ( handleLaunch baseDir mgr
-                :<|> handleList mgr
-                :<|> handleStop baseDir mgr
+            ( handleList baseDir mgr
+                :<|> handleStop mgr
+                :<|> handleListPanes mgr
+                :<|> handleSplitPane mgr
+                :<|> handleSelectLayout mgr
+                :<|> handleListWindows mgr
+                :<|> handleNewWindow mgr
+                :<|> handleSelectWindow mgr
+                :<|> handleScrollSession mgr
+                :<|> handleLiveSession mgr
                 :<|> handleListWorktrees baseDir
                 :<|> handleListBranches baseDir
                 :<|> handleDeleteBranch baseDir
                 :<|> staticFallback staticDir
             )
 
--- | Static file fallback — serves index.html for SPA.
+-- | Static file fallback — serves real assets first, then index.html for SPA.
 staticFallback :: FilePath -> Tagged Handler Application
-staticFallback staticDir = Tagged $ \_req respond ->
-    respond $
-        responseFile
-            status200
-            [("Content-Type", "text/html")]
-            (staticDir <> "/index.html")
-            Nothing
+staticFallback staticDir = Tagged $ \req respond ->
+    if requestMethod req `elem` [methodGet, methodHead]
+        then do
+            let requested = staticRequestPath staticDir (pathInfo req)
+            exists <- doesFileExist requested
+            let filePath =
+                    if exists
+                        then requested
+                        else staticDir <> "/index.html"
+            respond $
+                responseFile
+                    status200
+                    (("Content-Type", contentType filePath) : noCacheHeaders)
+                    filePath
+                    Nothing
+        else
+            respond $
+                responseLBS
+                    status404
+                    [("Content-Type", "application/json")]
+                    "{\"error\":\"not found\"}"
 
--- | Build the main repo path from base dir and repo.
-repoPath :: FilePath -> Repo -> FilePath
-repoPath baseDir Repo{repoName} =
-    baseDir <> "/" <> T.unpack repoName
-
--- | Launch a new agent session.
-handleLaunch
-    :: FilePath
-    -> SessionManager
-    -> LaunchRequest
-    -> Handler Aeson.Value
-handleLaunch baseDir mgr LaunchRequest{launchRepo, launchIssue} =
-    do
-        let sid = mkSessionId launchRepo launchIssue
-        existing <- liftIO $ readTVarIO (sessions mgr)
-        case Map.lookup sid existing of
-            Just session ->
-                pure (Aeson.toJSON session)
-            Nothing ->
-                launchSession
-                    baseDir
-                    mgr
-                    sid
-                    launchRepo
-                    launchIssue
-
--- | Internal: create and launch a new session.
-launchSession
-    :: FilePath
-    -> SessionManager
-    -> SessionId
-    -> Repo
-    -> Int
-    -> Handler Aeson.Value
-launchSession baseDir mgr sid repo issue = do
-    let tmuxName = mkTmuxName repo issue
-        worktree = mkWorktreePath baseDir repo issue
-    now <- liftIO getCurrentTime
-    let prompt = claudePrompt repo issue
-        session =
-            Session
-                { sessionId = sid
-                , sessionRepo = repo
-                , sessionIssue = issue
-                , sessionWorktree = worktree
-                , sessionTmuxName = tmuxName
-                , sessionState = Creating
-                , sessionCreatedAt = now
-                , sessionPrompt = prompt
-                , sessionLastActivity = now
-                }
-    liftIO $
-        atomically $ do
-            m <- readTVar (sessions mgr)
-            writeTVar (sessions mgr) $
-                Map.insert sid session m
-    result <- liftIO $ runLaunchSteps tmuxName worktree
-    case result of
-        Left reason -> do
-            liftIO $
-                setSessionState mgr sid (Failed reason)
-            throwError
-                err500
-                    { errBody =
-                        Aeson.encode $ errorJson reason
-                    , errHeaders = jsonHeaders
-                    }
-        Right () -> do
-            liftIO $ setSessionState mgr sid Running
-            pure $
-                Aeson.toJSON
-                    session{sessionState = Running}
+staticRequestPath :: FilePath -> [Text] -> FilePath
+staticRequestPath staticDir segments =
+    case safeSegments of
+        [] -> staticDir <> "/index.html"
+        xs -> staticDir <> "/" <> intercalate "/" xs
   where
-    runLaunchSteps tmuxName' worktree' = do
-        wtResult <-
-            Worktree.createWorktree
-                (repoPath baseDir repo)
-                worktree'
-                ( "feat/issue-"
-                    <> T.pack (show issue)
-                )
-        case wtResult of
-            Left e -> pure (Left e)
-            Right () -> do
-                tmResult <-
-                    Tmux.createSession
-                        tmuxName'
-                        worktree'
-                case tmResult of
-                    Left e -> pure (Left e)
-                    Right () ->
-                        Tmux.sendKeys
-                            tmuxName'
-                            ( "claude --dangerously-skip-permissions "
-                                <> claudePrompt
-                                    repo
-                                    issue
-                            )
+    safeSegments =
+        [ T.unpack segment
+        | segment <- segments
+        , segment /= "."
+        , segment /= ".."
+        , not (T.any (== '/') segment)
+        , not (T.any (== '\\') segment)
+        ]
+
+contentType :: FilePath -> ByteString
+contentType path
+    | ".html" `isSuffixOf` path = "text/html"
+    | ".js" `isSuffixOf` path = "application/javascript"
+    | ".css" `isSuffixOf` path = "text/css"
+    | ".woff2" `isSuffixOf` path = "font/woff2"
+    | otherwise = "application/octet-stream"
 
 -- | List all active sessions.
 handleList
-    :: SessionManager
+    :: FilePath
+    -> SessionManager
     -> Handler [Session]
-handleList mgr = do
+handleList baseDir mgr = do
+    liftIO $ Recovery.recoverSessions baseDir mgr
     m <- liftIO $ readTVarIO (sessions mgr)
     pure $ Map.elems m
 
 -- | Stop a session and clean up resources.
 handleStop
-    :: FilePath
-    -> SessionManager
+    :: SessionManager
     -> Text
+    -> Maybe Text
     -> Handler Aeson.Value
-handleStop baseDir mgr sidText = do
+handleStop mgr sidText confirmText = do
     let sid = SessionId sidText
     m <- liftIO $ readTVarIO (sessions mgr)
     case Map.lookup sid m of
@@ -229,18 +185,24 @@ handleStop baseDir mgr sidText = do
                     , errHeaders = jsonHeaders
                     }
         Just session -> do
+            case confirmText of
+                Just confirm
+                    | confirm == sidText -> pure ()
+                _ ->
+                    throwError
+                        err400
+                            { errBody =
+                                Aeson.encode $
+                                    errorJson
+                                        ( "Deletion requires confirm="
+                                            <> sidText
+                                        )
+                            , errHeaders = jsonHeaders
+                            }
             _ <-
                 liftIO $
                     Tmux.killSession
                         (sessionTmuxName session)
-            _ <-
-                liftIO $
-                    Worktree.removeWorktree
-                        ( repoPath
-                            baseDir
-                            (sessionRepo session)
-                        )
-                        (sessionWorktree session)
             liftIO $
                 atomically $ do
                     current <- readTVar (sessions mgr)
@@ -253,6 +215,232 @@ handleStop baseDir mgr sidText = do
                         , Aeson.String "stopped"
                         )
                     ]
+
+-- | List tmux panes for a session.
+handleListPanes
+    :: SessionManager
+    -> Text
+    -> Handler [PaneInfo]
+handleListPanes mgr sidText =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.listPanes
+                    (sessionTmuxName session)
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right panes -> pure panes
+
+-- | Split a pane in a session.
+handleSplitPane
+    :: SessionManager
+    -> Text
+    -> PaneSplitRequest
+    -> Handler PaneInfo
+handleSplitPane
+    mgr
+    sidText
+    PaneSplitRequest
+        { splitTarget
+        , splitDirection
+        , splitCwd
+        , splitCommand
+        } =
+        withSession mgr sidText $ \session -> do
+            ensurePaneTarget session splitTarget
+            result <-
+                liftIO $
+                    Tmux.splitPane
+                        (sessionTmuxName session)
+                        splitTarget
+                        splitDirection
+                        splitCwd
+                        splitCommand
+            case result of
+                Left reason ->
+                    throwError
+                        err500
+                            { errBody =
+                                Aeson.encode $
+                                    errorJson reason
+                            , errHeaders = jsonHeaders
+                            }
+                Right pane -> pure pane
+
+-- | Select a tmux layout for a session.
+handleSelectLayout
+    :: SessionManager
+    -> Text
+    -> LayoutRequest
+    -> Handler Aeson.Value
+handleSelectLayout mgr sidText LayoutRequest{layout} =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.selectLayout
+                    (sessionTmuxName session)
+                    layout
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right () ->
+                pure $
+                    Aeson.object
+                        [
+                            ( "status"
+                            , Aeson.String "layout-selected"
+                            )
+                        ]
+
+-- | List tmux windows for a session.
+handleListWindows
+    :: SessionManager
+    -> Text
+    -> Handler [WindowInfo]
+handleListWindows mgr sidText =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.listWindows
+                    (sessionTmuxName session)
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right windows -> pure windows
+
+-- | Create and select a new tmux window for a session.
+handleNewWindow
+    :: SessionManager
+    -> Text
+    -> Handler WindowInfo
+handleNewWindow mgr sidText =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.newWindow
+                    (sessionTmuxName session)
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right window -> pure window
+
+-- | Select a tmux window for a session.
+handleSelectWindow
+    :: SessionManager
+    -> Text
+    -> WindowSelectRequest
+    -> Handler Aeson.Value
+handleSelectWindow mgr sidText WindowSelectRequest{selectIndex} =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.selectWindow
+                    (sessionTmuxName session)
+                    selectIndex
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right () ->
+                pure $
+                    Aeson.object
+                        [
+                            ( "status"
+                            , Aeson.String "window-selected"
+                            )
+                        ]
+
+-- | Scroll the active tmux pane for a browser touch gesture.
+handleScrollSession
+    :: SessionManager
+    -> Text
+    -> ScrollRequest
+    -> Handler Aeson.Value
+handleScrollSession mgr sidText ScrollRequest{scrollLines} =
+    withSession mgr sidText $ \session -> do
+        let amount = clampScrollAmount scrollLines
+        result <-
+            liftIO $
+                Tmux.scrollPane
+                    (sessionTmuxName session)
+                    amount
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right () ->
+                pure $
+                    Aeson.object
+                        [
+                            ( "status"
+                            , Aeson.String "scrolled"
+                            )
+                        , ("lines", Aeson.toJSON amount)
+                        ]
+
+-- | Return the active tmux pane to live output.
+handleLiveSession
+    :: SessionManager
+    -> Text
+    -> Handler Aeson.Value
+handleLiveSession mgr sidText =
+    withSession mgr sidText $ \session -> do
+        result <-
+            liftIO $
+                Tmux.cancelPaneMode
+                    (sessionTmuxName session)
+        case result of
+            Left reason ->
+                throwError
+                    err500
+                        { errBody =
+                            Aeson.encode $
+                                errorJson reason
+                        , errHeaders = jsonHeaders
+                        }
+            Right () ->
+                pure $
+                    Aeson.object
+                        [
+                            ( "status"
+                            , Aeson.String "live"
+                            )
+                        ]
 
 -- | List all worktree directories on disk.
 handleListWorktrees
@@ -280,7 +468,7 @@ toWorktreeInfo baseDir name =
             if not isDir
                 then pure Nothing
                 else do
-                    owner <- getRepoOwner path
+                    owner <- Recovery.getRepoOwner path
                     pure $
                         Just
                             WorktreeInfo
@@ -347,17 +535,65 @@ handleDeleteBranch baseDir repo branch = do
                         )
                     ]
 
--- | Update session state in the registry.
-setSessionState
-    :: SessionManager -> SessionId -> SessionState -> IO ()
-setSessionState mgr sid state =
-    atomically $ do
-        m <- readTVar (sessions mgr)
-        writeTVar (sessions mgr) $
-            Map.adjust
-                (\s -> s{sessionState = state})
-                sid
-                m
+-- | Look up a session or return a JSON 404.
+withSession
+    :: SessionManager
+    -> Text
+    -> (Session -> Handler a)
+    -> Handler a
+withSession mgr sidText action = do
+    let sid = SessionId sidText
+    m <- liftIO $ readTVarIO (sessions mgr)
+    case Map.lookup sid m of
+        Nothing ->
+            throwError
+                err404
+                    { errBody =
+                        Aeson.encode $
+                            errorJson
+                                ( "Session "
+                                    <> unSessionId sid
+                                    <> " not found"
+                                )
+                    , errHeaders = jsonHeaders
+                    }
+        Just session -> action session
+
+-- | Ensure a target pane belongs to the daemon session.
+ensurePaneTarget
+    :: Session
+    -> Maybe PaneId
+    -> Handler ()
+ensurePaneTarget _ Nothing = pure ()
+ensurePaneTarget session (Just target) = do
+    result <-
+        liftIO $
+            Tmux.listPanes
+                (sessionTmuxName session)
+    case result of
+        Left reason ->
+            throwError
+                err500
+                    { errBody =
+                        Aeson.encode $
+                            errorJson reason
+                    , errHeaders = jsonHeaders
+                    }
+        Right panes
+            | any ((== target) . paneId) panes -> pure ()
+            | otherwise ->
+                throwError
+                    err404
+                        { errBody =
+                            Aeson.encode $
+                                errorJson
+                                    ( "Pane "
+                                        <> unPaneId target
+                                        <> " not found in session "
+                                        <> sessionTmuxName session
+                                    )
+                        , errHeaders = jsonHeaders
+                        }
 
 -- | Build a JSON error object.
 errorJson :: Text -> Aeson.Value
@@ -368,29 +604,17 @@ errorJson msg =
 jsonHeaders :: ResponseHeaders
 jsonHeaders = [("Content-Type", "application/json")]
 
-{- | Build the initial prompt for Claude.
+-- | Clamp touch scroll batches to a small, bounded command.
+clampScrollAmount :: Int -> Int
+clampScrollAmount n = max (-80) (min 80 n)
 
-Tells Claude which issue to work on and how to load it.
-The prompt is shell-quoted to survive send-keys.
--}
-claudePrompt :: Repo -> Int -> Text
-claudePrompt Repo{repoOwner, repoName} issue =
-    "'"
-        <> "Work on "
-        <> repoOwner
-        <> "/"
-        <> repoName
-        <> "#"
-        <> T.pack (show issue)
-        <> ". "
-        <> "Start by running: "
-        <> "gh issue view "
-        <> T.pack (show issue)
-        <> " -R "
-        <> repoOwner
-        <> "/"
-        <> repoName
-        <> "'"
+-- | Static UI assets should always revalidate on touch devices.
+noCacheHeaders :: ResponseHeaders
+noCacheHeaders =
+    [ ("Cache-Control", "no-store, no-cache, must-revalidate")
+    , ("Pragma", "no-cache")
+    , ("Expires", "0")
+    ]
 
 {- | CORS middleware — adds permissive CORS headers to
 all responses.

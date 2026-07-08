@@ -5,13 +5,26 @@
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     dev-assets-mkdocs.url = "github:paolino/dev-assets?dir=mkdocs";
+    purescript-overlay = {
+      url = "github:paolino/purescript-overlay/fix/remove-nodePackages";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    mkSpagoDerivation = {
+      url = "github:jeslie0/mkSpagoDerivation";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs =
-    inputs@{ self, nixpkgs, flake-utils, haskellNix, dev-assets-mkdocs, ... }:
+    inputs@{ self, nixpkgs, flake-utils, haskellNix, dev-assets-mkdocs
+    , purescript-overlay, mkSpagoDerivation, ... }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-darwin" ] (system:
       let
         pkgs = import nixpkgs {
-          overlays = [ haskellNix.overlay ];
+          overlays = [
+            haskellNix.overlay
+            purescript-overlay.overlays.default
+            mkSpagoDerivation.overlays.default
+          ];
           inherit system;
         };
         project = import ./nix/project.nix { inherit pkgs; };
@@ -28,7 +41,7 @@
         };
         site = pkgs.runCommand "agent-daemon-site" { } ''
           mkdir -p $out/docs
-          cp -r ${./static}/* $out/
+          cp -r ${project.packages.static}/* $out/
           cp -r ${docs}/* $out/docs/
         '';
       in {

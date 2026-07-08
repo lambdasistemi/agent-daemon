@@ -6,280 +6,951 @@
   <title>agent-daemon</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @font-face {
+      font-family: "AgentJetBrainsMono";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.2.8/files/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "AgentSymbols";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-symbols-2@5.2.8/files/noto-sans-symbols-2-symbols-400-normal.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "AgentNerdSymbols";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@v3.4.0/patched-fonts/NerdFontsSymbolsOnly/SymbolsNerdFontMono-Regular.ttf") format("truetype");
+    }
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --surface: #171a21;
+      --surface-subtle: #13161c;
+      --surface-raised: #191d25;
+      --surface-active: #1b2830;
+      --border: #252a33;
+      --border-strong: #303642;
+      --text: #e6e8ee;
+      --text-strong: #f1f3f7;
+      --text-muted: #aab1c0;
+      --placeholder: #717987;
+      --button-bg: #222936;
+      --button-border: #3a4250;
+      --button-hover: #30394a;
+      --primary-bg: #256d85;
+      --primary-border: #2d819c;
+      --primary-hover: #2f829e;
+      --danger-bg: #4a2528;
+      --danger-border: #663136;
+      --danger-hover: #663136;
+      --active-border: #3b7f98;
+      --pill-bg: #242b36;
+      --pill-text: #bdc5d2;
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-subtle: #eef1f5;
+      --surface-raised: #ffffff;
+      --surface-active: #e8f3f6;
+      --border: #d7dde6;
+      --border-strong: #c7cfda;
+      --text: #1b2430;
+      --text-strong: #0f1722;
+      --text-muted: #5c6675;
+      --placeholder: #838c99;
+      --button-bg: #f4f7fa;
+      --button-border: #c7d0dc;
+      --button-hover: #e9eef5;
+      --primary-bg: #1f6d86;
+      --primary-border: #1c5f75;
+      --primary-hover: #18566a;
+      --danger-bg: #fff0f1;
+      --danger-border: #d4939a;
+      --danger-hover: #f5d9dc;
+      --active-border: #27809b;
+      --pill-bg: #e7ecf3;
+      --pill-text: #3c4655;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; overflow: hidden; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #1a1a2e;
-      color: #e0e0e0;
       height: 100vh;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
     }
     header {
-      padding: 12px 20px;
-      background: #16213e;
-      border-bottom: 1px solid #0f3460;
       display: flex;
       align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
+      gap: 10px;
+      min-width: 0;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
     }
-    header h1 {
+    h1 {
+      margin: 0;
+      color: var(--text-strong);
       font-size: 16px;
-      font-weight: 600;
-      color: #e94560;
-      margin-right: auto;
+      font-weight: 650;
+      white-space: nowrap;
     }
-    .controls {
+    .top-actions {
       display: flex;
-      gap: 8px;
       align-items: center;
+      gap: 8px;
+      margin-left: auto;
     }
-    input, select {
-      padding: 6px 10px;
-      border: 1px solid #0f3460;
-      border-radius: 4px;
-      background: #1a1a2e;
-      color: #e0e0e0;
-      font-size: 13px;
+    .settings-shell {
+      position: relative;
     }
-    input::placeholder { color: #666; }
-    button {
-      padding: 6px 14px;
-      border: none;
-      border-radius: 4px;
-      background: #0f3460;
-      color: #e0e0e0;
-      font-size: 13px;
-      cursor: pointer;
+    .settings-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 30;
+      width: min(380px, calc(100vw - 24px));
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      padding: 12px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
     }
-    button:hover { background: #e94560; }
-    button.danger { background: #533; }
-    button.danger:hover { background: #a33; }
-    #status {
-      font-size: 12px;
-      color: #888;
-      padding: 0 8px;
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
     }
-    #terminal-container {
-      flex: 1;
-      padding: 4px;
+    .field-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) 1fr;
+    }
+    body.sessions-collapsed main {
+      grid-template-columns: 0 1fr;
+    }
+    aside {
+      min-width: 0;
+      overflow: auto;
+      border-right: 1px solid var(--border);
+      background: var(--surface-subtle);
+      padding: 12px;
+    }
+    body.sessions-collapsed aside {
       overflow: hidden;
+      border-right: 0;
+      padding: 0;
+    }
+    body.sessions-collapsed aside > * {
+      display: none;
+    }
+    .workspace {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 1fr;
+      background: var(--bg);
+    }
+    .terminal-wrap {
+      min-height: 0;
+      overflow: hidden;
+      padding: 4px;
+    }
+    #terminal {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "AgentJetBrainsMono", "AgentNerdSymbols", "Symbols Nerd Font Mono", "AgentSymbols", "Noto Sans Mono", "Noto Sans Symbols 2", "Apple Color Emoji", "Segoe UI Emoji", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .section {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    input, button {
+      min-height: 34px;
+      border-radius: 4px;
+      font: inherit;
+      font-size: 13px;
+    }
+    input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--text);
+      padding: 7px 9px;
+    }
+    input::placeholder { color: var(--placeholder); }
+    button {
+      border: 1px solid var(--button-border);
+      background: var(--button-bg);
+      color: var(--text-strong);
+      padding: 7px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button, .button-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+    button svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+    }
+    .icon-button {
+      width: 34px;
+      padding: 0;
+    }
+    .setting-button {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    button:hover { background: var(--button-hover); }
+    button.primary {
+      background: var(--primary-bg);
+      border-color: var(--primary-border);
+      color: #ffffff;
+    }
+    button.primary:hover { background: var(--primary-hover); }
+    button.danger {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+    }
+    button.danger:hover { background: var(--danger-hover); }
+    button.danger-outline {
+      background: transparent;
+      border-color: var(--danger-border);
+      color: var(--text-strong);
+    }
+    button.danger-outline:hover { background: var(--danger-hover); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+    .session-list {
+      display: grid;
+      gap: 6px;
+    }
+    .session-row {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--surface-raised);
+      padding: 8px;
+    }
+    .session-row.active {
+      border-color: var(--active-border);
+      background: var(--surface-active);
+    }
+    .row-head, .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .row-head { justify-content: space-between; }
+    .row-actions { flex-wrap: wrap; }
+    .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .meta {
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status-pill {
+      border-radius: 999px;
+      background: var(--pill-bg);
+      color: var(--pill-text);
+      font-size: 11px;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+    #status {
+      color: var(--text-muted);
+      font-size: 12px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .grow { flex: 1; min-width: 160px; }
+    .hidden { display: none; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.46);
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      width: min(440px, 100%);
+      display: grid;
+      gap: 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      padding: 16px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    }
+    .modal-title {
+      margin: 0;
+      color: var(--text-strong);
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .modal-copy {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    @media (max-width: 900px) {
+      body { height: 100vh; min-height: 100vh; }
+      main { grid-template-columns: 1fr; grid-template-rows: minmax(180px, 36vh) 1fr; }
+      body.sessions-collapsed main { grid-template-columns: 1fr; grid-template-rows: 0 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--border); }
+      body.sessions-collapsed aside { border-bottom: 0; }
+      .settings-row { flex-wrap: wrap; }
+      h1 { font-size: 14px; }
     }
   </style>
 </head>
 <body>
   <header>
+    <button id="sidebar-toggle" class="icon-button" type="button" title="Sessions" aria-label="Toggle sessions" aria-expanded="true">
+      <span id="sidebar-icon" data-fallback="S"><i data-lucide="panel-left-close"></i></span>
+    </button>
     <h1>agent-daemon</h1>
-    <div class="controls">
-      <input id="server" type="text" placeholder="server (empty = local)" size="25" onchange="saveServer()">
-      <input id="owner" type="text" placeholder="owner" size="15">
-      <input id="repo" type="text" placeholder="repo" size="20">
-      <input id="issue" type="number" placeholder="#" size="5">
-      <button onclick="launch()">Launch</button>
-      <select id="session-select">
-        <option value="">-- sessions --</option>
-      </select>
-      <button onclick="attach()">Attach</button>
-      <button class="danger" onclick="stop()">Stop</button>
-      <button onclick="refreshSessions()">Refresh</button>
-    </div>
     <span id="status">disconnected</span>
+    <div class="top-actions">
+      <button id="refresh" class="icon-button" type="button" title="Refresh" aria-label="Refresh sessions">
+        <span data-fallback="R"><i data-lucide="refresh-cw"></i></span>
+      </button>
+      <div class="settings-shell">
+        <button id="settings-toggle" class="icon-button" type="button" title="Settings" aria-label="Settings" aria-expanded="false">
+          <span data-fallback="*"><i data-lucide="settings"></i></span>
+        </button>
+        <div id="settings-menu" class="settings-menu hidden">
+          <label class="field-label" for="server">Agent daemon</label>
+          <div class="settings-row">
+            <input id="server" class="grow" type="text" placeholder="server (empty = local)">
+            <button id="save-server" type="button">Save</button>
+          </div>
+          <button id="theme-toggle" class="setting-button" type="button" aria-pressed="false">
+            <span id="theme-icon" data-fallback="T"><i data-lucide="sun"></i></span>
+            <span id="theme-label">Light theme</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </header>
-  <div id="terminal-container"></div>
+
+  <main>
+    <aside>
+      <section class="section">
+        <div class="row-head">
+          <div class="section-title">Sessions</div>
+          <span id="session-count" class="status-pill">0</span>
+        </div>
+        <div id="sessions" class="session-list"></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="terminal-wrap">
+        <div id="terminal"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="confirm-overlay" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal">
+      <h2 id="confirm-title" class="modal-title">Confirm</h2>
+      <p id="confirm-message" class="modal-copy"></p>
+      <input id="confirm-input" type="text" autocomplete="off">
+      <div class="row-actions">
+        <button id="confirm-cancel">Cancel</button>
+        <button id="confirm-action" class="danger" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-webgl@0.18.0/lib/addon-webgl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.12.0/lib/addon-web-links.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.9.0/lib/addon-unicode11.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script>
+    const els = {
+      sidebarToggle: document.getElementById('sidebar-toggle'),
+      sidebarIcon: document.getElementById('sidebar-icon'),
+      server: document.getElementById('server'),
+      saveServer: document.getElementById('save-server'),
+      refresh: document.getElementById('refresh'),
+      settingsToggle: document.getElementById('settings-toggle'),
+      settingsMenu: document.getElementById('settings-menu'),
+      themeToggle: document.getElementById('theme-toggle'),
+      themeIcon: document.getElementById('theme-icon'),
+      themeLabel: document.getElementById('theme-label'),
+      status: document.getElementById('status'),
+      sessions: document.getElementById('sessions'),
+      sessionCount: document.getElementById('session-count'),
+      confirmOverlay: document.getElementById('confirm-overlay'),
+      confirmTitle: document.getElementById('confirm-title'),
+      confirmMessage: document.getElementById('confirm-message'),
+      confirmInput: document.getElementById('confirm-input'),
+      confirmCancel: document.getElementById('confirm-cancel'),
+      confirmAction: document.getElementById('confirm-action')
+    };
+
+    const state = {
+      sessions: [],
+      selectedSession: '',
+      attached: '',
+      attachedSession: '',
+      ws: null,
+      pendingStop: null,
+      theme: loadTheme(),
+      sessionsCollapsed: false,
+      settingsOpen: false
+    };
+    applyTheme(state.theme);
+    renderSidebarState();
+
+    const terminalFontFamily = [
+      '"AgentJetBrainsMono"',
+      '"AgentNerdSymbols"',
+      '"Symbols Nerd Font Mono"',
+      '"AgentSymbols"',
+      '"Noto Sans Mono"',
+      '"Noto Sans Symbols 2"',
+      '"Apple Color Emoji"',
+      '"Segoe UI Emoji"',
+      'ui-monospace',
+      'SFMono-Regular',
+      'Menlo',
+      'Consolas',
+      'monospace'
+    ].join(', ');
+    preloadTerminalFonts();
+
     const term = new Terminal({
       cursorBlink: true,
+      fontFamily: terminalFontFamily,
       fontSize: 14,
       scrollOnUserInput: false,
-      theme: {
-        background: '#1a1a2e',
-        foreground: '#e0e0e0',
-        cursor: '#e94560'
-      }
+      theme: terminalTheme(state.theme)
     });
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
-    term.open(document.getElementById('terminal-container'));
-    const webglAddon = new WebglAddon.WebglAddon();
-    webglAddon.onContextLoss(() => webglAddon.dispose());
-    term.loadAddon(webglAddon);
-    fitAddon.fit();
-    window.addEventListener('resize', () => fitAddon.fit());
+    try {
+      const unicode11Addon = new Unicode11Addon.Unicode11Addon();
+      term.loadAddon(unicode11Addon);
+      term.unicode.activeVersion = '11';
+    } catch (_) {}
+    try {
+      const webLinksAddon = new WebLinksAddon.WebLinksAddon(openTerminalLink, {
+        hover: () => { document.documentElement.style.cursor = 'pointer'; },
+        leave: () => { document.documentElement.style.cursor = ''; }
+      });
+      term.loadAddon(webLinksAddon);
+    } catch (_) {}
+    term.open(document.getElementById('terminal'));
+    try {
+      const webglAddon = new WebglAddon.WebglAddon();
+      webglAddon.onContextLoss(() => webglAddon.dispose());
+      term.loadAddon(webglAddon);
+    } catch (_) {}
+    fitTerminal();
+    window.addEventListener('resize', fitTerminal);
 
-    let ws = null;
-    const status = document.getElementById('status');
-    const sessionSelect = document.getElementById('session-select');
-    const serverInput = document.getElementById('server');
+    term.onData((data) => {
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(new TextEncoder().encode(data));
+      }
+    });
+    term.onResize(sendResize);
 
-    // Restore saved server address
     const saved = localStorage.getItem('agent-daemon-server');
-    if (saved) serverInput.value = saved;
+    if (saved) els.server.value = saved;
+
+    els.sidebarToggle.addEventListener('click', toggleSessions);
+    els.saveServer.addEventListener('click', saveServer);
+    els.server.addEventListener('change', saveServer);
+    els.settingsToggle.addEventListener('click', toggleSettings);
+    els.themeToggle.addEventListener('click', toggleTheme);
+    els.refresh.addEventListener('click', refreshAll);
+    els.confirmCancel.addEventListener('click', closeStopDialog);
+    els.confirmAction.addEventListener('click', confirmStopSession);
+    els.confirmInput.addEventListener('input', updateStopDialog);
+    els.confirmOverlay.addEventListener('click', (event) => {
+      if (event.target === els.confirmOverlay) closeStopDialog();
+    });
+    document.addEventListener('click', (event) => {
+      if (!state.settingsOpen) return;
+      if (els.settingsMenu.contains(event.target) || els.settingsToggle.contains(event.target)) return;
+      setSettingsOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (state.settingsOpen) setSettingsOpen(false);
+      if (!els.confirmOverlay.classList.contains('hidden')) closeStopDialog();
+    });
+
+    function preloadTerminalFonts() {
+      if (!document.fonts) return;
+      for (const family of ['AgentJetBrainsMono', 'AgentNerdSymbols', 'AgentSymbols']) {
+        document.fonts.load('14px "' + family + '"').catch(() => {});
+      }
+    }
 
     function saveServer() {
-      const v = serverInput.value.trim();
-      if (v) localStorage.setItem('agent-daemon-server', v);
+      const value = els.server.value.trim();
+      if (value) localStorage.setItem('agent-daemon-server', value);
       else localStorage.removeItem('agent-daemon-server');
+      setStatus('server saved');
+    }
+
+    function loadTheme() {
+      const savedTheme = localStorage.getItem('agent-daemon-theme');
+      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+      return 'dark';
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('agent-daemon-theme', state.theme);
+      applyTheme(state.theme);
+      setTerminalTheme(state.theme);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      els.themeLabel.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
+      setIcon(els.themeIcon, theme === 'dark' ? 'sun' : 'moon', 'T');
+      els.themeToggle.setAttribute('aria-pressed', String(theme === 'light'));
+    }
+
+    function toggleSessions() {
+      state.sessionsCollapsed = !state.sessionsCollapsed;
+      renderSidebarState();
+    }
+
+    function renderSidebarState() {
+      document.body.classList.toggle('sessions-collapsed', state.sessionsCollapsed);
+      els.sidebarToggle.setAttribute('aria-expanded', String(!state.sessionsCollapsed));
+      els.sidebarToggle.title = state.sessionsCollapsed ? 'Show sessions' : 'Hide sessions';
+      els.sidebarToggle.setAttribute('aria-label', state.sessionsCollapsed ? 'Show sessions' : 'Hide sessions');
+      setIcon(els.sidebarIcon, state.sessionsCollapsed ? 'panel-left-open' : 'panel-left-close', 'S');
+      requestAnimationFrame(() => {
+        fitTerminal();
+        setTimeout(fitTerminal, 120);
+      });
+    }
+
+    function toggleSettings() {
+      setSettingsOpen(!state.settingsOpen);
+    }
+
+    function setSettingsOpen(open) {
+      state.settingsOpen = open;
+      els.settingsMenu.classList.toggle('hidden', !open);
+      els.settingsToggle.setAttribute('aria-expanded', String(open));
+      if (open) els.server.focus();
+    }
+
+    function setTerminalTheme(theme) {
+      const nextTheme = terminalTheme(theme);
+      if (typeof term.setOption === 'function') {
+        term.setOption('theme', nextTheme);
+      } else {
+        term.options.theme = nextTheme;
+      }
+    }
+
+    function terminalTheme(theme) {
+      if (theme === 'light') {
+        return {
+          background: '#ffffff',
+          foreground: '#1b2430',
+          cursor: '#1f6d86',
+          selectionBackground: '#cfe7ef',
+          black: '#1b2430',
+          red: '#a43e47',
+          green: '#28724f',
+          yellow: '#8a6300',
+          blue: '#235d9b',
+          magenta: '#7c4d91',
+          cyan: '#1f6d86',
+          white: '#eef1f5',
+          brightBlack: '#667085',
+          brightRed: '#c9515b',
+          brightGreen: '#328761',
+          brightYellow: '#a97900',
+          brightBlue: '#2f72b8',
+          brightMagenta: '#925eb0',
+          brightCyan: '#27809b',
+          brightWhite: '#ffffff'
+        };
+      }
+      return {
+        background: '#0f1115',
+        foreground: '#e6e8ee',
+        cursor: '#7fd1e8',
+        selectionBackground: '#2d5362',
+        black: '#0f1115',
+        red: '#e06c75',
+        green: '#98c379',
+        yellow: '#e5c07b',
+        blue: '#61afef',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#e6e8ee',
+        brightBlack: '#5c6675',
+        brightRed: '#f07178',
+        brightGreen: '#b5e890',
+        brightYellow: '#ffd580',
+        brightBlue: '#7cc7ff',
+        brightMagenta: '#d79bf2',
+        brightCyan: '#7fd1e8',
+        brightWhite: '#ffffff'
+      };
     }
 
     function apiBase() {
-      const s = serverInput.value.trim();
-      if (!s) return window.location.origin;
-      return (s.startsWith('http') ? s : 'http://' + s).replace(/\/$/, '');
+      const value = els.server.value.trim();
+      if (!value) return window.location.origin;
+      return (value.startsWith('http') ? value : 'http://' + value).replace(/\/$/, '');
     }
 
     function wsBase() {
-      const s = serverInput.value.trim();
-      if (!s) {
+      const value = els.server.value.trim();
+      if (!value) {
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         return proto + '//' + window.location.host;
       }
-      const proto = s.startsWith('https') ? 'wss:' : 'ws:';
-      const host = s.replace(/^https?:\/\//, '');
-      return proto + '//' + host;
+      const proto = value.startsWith('https') ? 'wss:' : 'ws:';
+      return proto + '//' + value.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
 
-    async function launch() {
-      const owner = document.getElementById('owner').value;
-      const repo = document.getElementById('repo').value;
-      const issue = parseInt(document.getElementById('issue').value);
-      if (!owner || !repo || !issue) {
-        status.textContent = 'fill in owner, repo, and issue';
-        return;
-      }
-      try {
-        const res = await fetch(apiBase() + '/sessions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repo: { owner, name: repo }, issue })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          const sid = data.id;
-          await refreshSessions();
-          if (sid) sessionSelect.value = sid;
-          if (res.status === 201) {
-            status.textContent = 'launched: ' + sid;
-            attach();
-          } else {
-            status.textContent = 'already exists: ' + sid + ' (select and attach)';
-          }
-        } else {
-          status.textContent = 'error: ' + (data.error || res.statusText);
-        }
-      } catch (e) {
-        status.textContent = 'error: ' + e.message;
-      }
+    async function refreshAll() {
+      await refreshSessions();
     }
 
     async function refreshSessions() {
       try {
-        const res = await fetch(apiBase() + '/sessions');
-        const sessions = await res.json();
-        const prev = sessionSelect.value;
-        sessionSelect.innerHTML = '<option value="">-- sessions --</option>';
-        for (const s of sessions) {
-          const opt = document.createElement('option');
-          const sid = s.id || s.Id;
-          opt.value = sid;
-          opt.textContent = sid + ' (' + (s.state || s.State || '?') + ')';
-          sessionSelect.appendChild(opt);
+        const sessions = await getJson('/sessions');
+        state.sessions = sessions.map(normalizeSession);
+        if (!state.sessions.some((s) => s.id === state.selectedSession)) {
+          state.selectedSession = state.sessions[0]?.id || '';
         }
-        if (prev) sessionSelect.value = prev;
-        status.textContent = sessions.length + ' session(s)';
-      } catch (e) {
-        status.textContent = 'error: ' + e.message;
+        renderSessions();
+        setStatus(state.sessions.length + ' session(s)');
+      } catch (error) {
+        setStatus('error: ' + error.message);
       }
     }
 
-    function attach() {
-      const sid = sessionSelect.value;
-      if (!sid) {
-        status.textContent = 'select a session first';
-        return;
+    function openStopDialog(session) {
+      if (!session) return;
+      state.pendingStop = session;
+      els.confirmTitle.textContent = 'End tmux session';
+      els.confirmMessage.textContent =
+        'Type "' + session.id + '" to confirm. This will terminate tmux session "' +
+        (session.tmuxName || session.id) + '".';
+      els.confirmInput.value = '';
+      els.confirmInput.placeholder = session.id;
+      els.confirmOverlay.classList.remove('hidden');
+      updateStopDialog();
+      els.confirmInput.focus();
+    }
+
+    function closeStopDialog() {
+      state.pendingStop = null;
+      els.confirmOverlay.classList.add('hidden');
+      els.confirmInput.value = '';
+      els.confirmAction.disabled = true;
+    }
+
+    function updateStopDialog() {
+      const target = state.pendingStop;
+      const confirmed = Boolean(target && els.confirmInput.value === target.id);
+      els.confirmAction.disabled = !confirmed;
+      if (target) {
+        els.confirmAction.textContent = 'End session';
       }
+    }
+
+    async function confirmStopSession() {
+      const session = state.pendingStop;
+      if (!session || els.confirmInput.value !== session.id) return;
+      if (state.attachedSession === session.id) disconnect();
+      try {
+        await deleteJson(
+          '/sessions/' + encodeURIComponent(session.id) +
+            '?confirm=' + encodeURIComponent(session.id)
+        );
+        if (state.selectedSession === session.id) {
+          state.selectedSession = '';
+        }
+        closeStopDialog();
+        await refreshAll();
+        setStatus('stopped: ' + session.id);
+      } catch (error) {
+        setStatus('error: ' + error.message);
+      }
+    }
+
+    function selectSession(id) {
+      state.selectedSession = id;
+      renderSessions();
+    }
+
+    function attachSession(id) {
+      const sessionId = id || state.selectedSession;
+      if (!sessionId) return;
+      state.selectedSession = sessionId;
+      attach(
+        wsBase() + '/sessions/' + encodeURIComponent(sessionId) + '/terminal',
+        'session ' + sessionId,
+        sessionId
+      );
+    }
+
+    function attach(url, label, sessionId) {
       disconnect();
       term.clear();
+      const socket = new WebSocket(url);
+      state.ws = socket;
+      socket.binaryType = 'arraybuffer';
+      state.attached = label;
+      state.attachedSession = sessionId;
+      renderSessions();
 
-      const url = wsBase() + '/sessions/' + sid + '/terminal';
-      ws = new WebSocket(url);
-      ws.binaryType = 'arraybuffer';
-
-      ws.onopen = () => {
-        status.textContent = 'attached: ' + sid;
+      socket.onopen = () => {
+        setStatus('attached: ' + label);
         term.focus();
+        fitTerminal();
         sendResize();
       };
-
-      ws.onmessage = (ev) => {
-        if (ev.data instanceof ArrayBuffer) {
-          term.write(new Uint8Array(ev.data));
+      socket.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          term.write(new Uint8Array(event.data));
         } else {
-          term.write(ev.data);
+          term.write(event.data);
         }
       };
-
-      ws.onclose = () => {
-        status.textContent = 'disconnected';
-        ws = null;
+      socket.onclose = () => {
+        if (state.ws !== socket) return;
+        state.ws = null;
+        state.attached = '';
+        state.attachedSession = '';
+        renderSessions();
+        setStatus('disconnected');
       };
-
-      ws.onerror = () => {
-        status.textContent = 'connection error';
-        ws = null;
+      socket.onerror = () => {
+        setStatus('connection error');
       };
-
-      term.onData((data) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(new TextEncoder().encode(data));
-        }
-      });
-
-      term.onResize(() => sendResize());
-    }
-
-    function sendResize() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const cols = term.cols;
-        const rows = term.rows;
-        // resize protocol: 0x01 + "cols;rows"
-        const msg = '\x01' + cols + ';' + rows;
-        ws.send(new TextEncoder().encode(msg));
-      }
     }
 
     function disconnect() {
-      if (ws) {
+      if (state.ws) {
+        const ws = state.ws;
+        state.ws = null;
+        state.attached = '';
+        state.attachedSession = '';
         ws.close();
-        ws = null;
+      }
+      renderSessions();
+    }
+
+    function renderSessions() {
+      els.sessionCount.textContent = String(state.sessions.length);
+      els.sessions.innerHTML = '';
+      if (state.sessions.length === 0) {
+        els.sessions.appendChild(emptyRow('no sessions'));
+      }
+      for (const session of state.sessions) {
+        const row = document.createElement('div');
+        row.className = 'session-row' + (session.id === state.selectedSession ? ' active' : '');
+
+        const head = document.createElement('div');
+        head.className = 'row-head';
+        head.appendChild(textEl('div', 'name', sessionLabel(session)));
+        head.appendChild(textEl('span', 'status-pill', session.state));
+
+        const meta = textEl('div', 'meta', session.currentPath || session.tmuxName || '');
+
+        const actions = document.createElement('div');
+        actions.className = 'row-actions';
+        if (state.attachedSession === session.id && state.ws) {
+          actions.appendChild(button('Disconnect', disconnect, '', 'unlink'));
+        } else {
+          actions.appendChild(button('Attach', () => attachSession(session.id), 'primary', 'log-in'));
+        }
+        actions.appendChild(button('End', () => openStopDialog(session), 'danger-outline', 'power'));
+
+        row.appendChild(head);
+        row.appendChild(meta);
+        row.appendChild(actions);
+        els.sessions.appendChild(row);
+      }
+      renderIcons();
+    }
+
+    function normalizeSession(session) {
+      return {
+        id: session.id || session.Id || '',
+        state: session.state || session.State || '?',
+        tmuxName: session.tmuxName || session.TmuxName || '',
+        currentPath: session.currentPath || session.CurrentPath || ''
+      };
+    }
+
+    function sessionLabel(session) {
+      return session.tmuxName || session.id;
+    }
+
+    async function getJson(path) {
+      const res = await fetch(apiBase() + path);
+      return readJsonResponse(res);
+    }
+
+    async function deleteJson(path) {
+      const res = await fetch(apiBase() + path, { method: 'DELETE' });
+      return readJsonResponse(res);
+    }
+
+    async function readJsonResponse(res) {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    function sendResize() {
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        const msg = '\x01' + term.cols + ';' + term.rows;
+        state.ws.send(new TextEncoder().encode(msg));
       }
     }
 
-    async function stop() {
-      const sid = sessionSelect.value;
-      if (!sid) {
-        status.textContent = 'select a session first';
+    function fitTerminal() {
+      fitAddon.fit();
+    }
+
+    function openTerminalLink(_event, uri) {
+      const target = window.open();
+      if (target) {
+        try { target.opener = null; } catch (_) {}
+        target.location.href = uri;
+        setStatus('opened link');
+      } else {
+        setStatus('link blocked by browser');
+      }
+    }
+
+    function setStatus(message) {
+      els.status.textContent = message;
+    }
+
+    function setIcon(slot, icon, fallback) {
+      slot.dataset.fallback = fallback;
+      slot.innerHTML = '<i data-lucide="' + icon + '"></i>';
+      renderIcons();
+    }
+
+    function renderIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
         return;
       }
-      disconnect();
-      try {
-        const res = await fetch(apiBase() + '/sessions/' + sid, {
-          method: 'DELETE'
-        });
-        const data = await res.json();
-        status.textContent = data.status || data.error || 'stopped';
-        await refreshSessions();
-      } catch (e) {
-        status.textContent = 'error: ' + e.message;
+      for (const slot of document.querySelectorAll('[data-fallback]')) {
+        if (!slot.textContent.trim()) slot.textContent = slot.dataset.fallback;
       }
     }
 
-    // Load sessions on page load
-    refreshSessions();
+    function button(label, onClick, className = '', icon = '') {
+      const el = document.createElement('button');
+      el.type = 'button';
+      if (icon) {
+        const iconSlot = document.createElement('span');
+        iconSlot.dataset.fallback = label.slice(0, 1);
+        iconSlot.innerHTML = '<i data-lucide="' + icon + '"></i>';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'button-label';
+        labelEl.textContent = label;
+        el.appendChild(iconSlot);
+        el.appendChild(labelEl);
+      } else {
+        el.textContent = label;
+      }
+      if (className) el.className = className;
+      el.addEventListener('click', onClick);
+      return el;
+    }
+
+    function textEl(tag, className, text) {
+      const el = document.createElement(tag);
+      el.className = className;
+      el.textContent = text;
+      return el;
+    }
+
+    function emptyRow(text) {
+      const row = document.createElement('div');
+      row.className = 'session-row';
+      row.appendChild(textEl('div', 'meta', text));
+      return row;
+    }
+
+    refreshAll();
   </script>
 </body>
 </html>

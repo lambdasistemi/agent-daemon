@@ -1,0 +1,30 @@
+package:
+  name: agent-daemon-ui
+  dependencies:
+    - prelude
+    - effect
+    - aff
+    - aff-promise
+    - console
+    - halogen
+    - arrays
+    - maybe
+    - either
+    - foldable-traversable
+    - strings
+    - web-html
+    - web-dom
+  bundle:
+    module: Main
+    outfile: dist/index.js
+    platform: browser
+    type: app
+  test:
+    main: Test.Main
+    dependencies:
+      - spec
+      - aff
+
+workspace:
+  packageSet:
+    registry: 72.1.0

@@ -1,0 +1,28 @@
+set unstable := true
+
+default:
+    @just --list
+
+install:
+    npm ci
+
+build:
+    spago build
+
+bundle:
+    mkdir -p dist/fonts
+    cp node_modules/@xterm/xterm/css/xterm.css dist/xterm.css
+    cp node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2 dist/fonts/
+    cp node_modules/@fontsource/noto-sans-symbols-2/files/noto-sans-symbols-2-symbols-400-normal.woff2 dist/fonts/
+    esbuild src/bootstrap.js --bundle --outfile=dist/deps.js --format=iife --platform=browser --minify
+    spago bundle --module Main --outfile dist/app.js
+    cat dist/deps.js dist/app.js > dist/index.js
+    rm dist/deps.js dist/app.js
+
+format:
+    purs-tidy format-in-place 'src/**/*.purs'
+
+lint:
+    purs-tidy check 'src/**/*.purs'
+
+ci: install lint build bundle

@@ -38,8 +38,10 @@ CI:
     #!/usr/bin/env bash
     set -euo pipefail
     just build
+    just ui-build
     fourmolu -m check src app
     hlint src app
+    just ui-lint
 
 # Run the daemon
 serve *args:
@@ -59,6 +61,33 @@ serve-docs:
 # Deploy documentation to GitHub Pages
 deploy-docs:
     mkdocs-deploy --force
+
+# --- UI recipes ---
+
+ui-install:
+    #!/usr/bin/env bash
+    cd ui
+    npm ci
+
+ui-build:
+    #!/usr/bin/env bash
+    cd ui
+    spago build
+
+ui-bundle:
+    #!/usr/bin/env bash
+    cd ui
+    just bundle
+
+ui-format:
+    #!/usr/bin/env bash
+    cd ui
+    purs-tidy format-in-place 'src/**/*.purs'
+
+ui-lint:
+    #!/usr/bin/env bash
+    cd ui
+    purs-tidy check 'src/**/*.purs'
 
 # --- Client recipes ---
 

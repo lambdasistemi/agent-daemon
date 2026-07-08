@@ -2,6 +2,7 @@
 
 module AgentDaemon.Terminal
     ( terminalApp
+    , paneTerminalApp
     ) where
 
 -- \|
@@ -15,8 +16,11 @@ module AgentDaemon.Terminal
 -- a PTY running @tmux attach@ and relays I\/O
 -- bidirectionally.
 
+import AgentDaemon.Tmux qualified as Tmux
 import AgentDaemon.Types
-    ( SessionId
+    ( PaneId (..)
+    , PaneInfo (..)
+    , SessionId
     , SessionManager
     , updateSessionActivity
     )
@@ -28,6 +32,7 @@ import Control.Exception (SomeException, catch)
 import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
 import Data.Time (getCurrentTime)
 import Network.WebSockets qualified as WS
 import System.Environment (getEnvironment)
@@ -66,6 +71,47 @@ terminalApp mgr sid sessionName pending = do
         wsTopty mgr sid pty conn
             `catch` \(_ :: SomeException) -> pure ()
         killThread readerId
+
+{- | WebSocket application that selects a pane before
+attaching to the session.
+
+Tmux attaches clients to sessions rather than isolated panes, so
+the browser still sees the whole tmux window. The selected pane
+receives input from the attached client.
+-}
+paneTerminalApp
+    :: SessionManager
+    -> SessionId
+    -> Text
+    -- ^ tmux session name
+    -> PaneId
+    -- ^ pane to select before attaching
+    -> WS.ServerApp
+paneTerminalApp mgr sid sessionName targetPane pending = do
+    panesResult <- Tmux.listPanes sessionName
+    case panesResult of
+        Left reason ->
+            reject reason
+        Right panes
+            | any ((== targetPane) . paneId) panes ->
+                selectAndAttach
+            | otherwise ->
+                reject $
+                    "Pane "
+                        <> unPaneId targetPane
+                        <> " not found in session "
+                        <> sessionName
+  where
+    selectAndAttach = do
+        result <- Tmux.selectPane targetPane
+        case result of
+            Left reason -> reject reason
+            Right () ->
+                terminalApp mgr sid sessionName pending
+    reject reason =
+        WS.rejectRequest
+            pending
+            (TE.encodeUtf8 reason)
 
 -- | Forward PTY output to WebSocket.
 ptyToWs
