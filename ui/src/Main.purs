@@ -44,6 +44,7 @@ type State =
   , sessionMenuOpen :: Boolean
   , windowMenuOpen :: Boolean
   , terminalMenuOpen :: Boolean
+  , terminalSelectionMode :: Boolean
   , pasteMenuOpen :: Boolean
   , pastes :: Array PasteSnippet
   , pasteName :: String
@@ -80,6 +81,8 @@ data Action
   | SendCtrlB
   | SendCtrlBCommand
   | SendLive
+  | CopyTerminalText
+  | ToggleTerminalSelectionMode
   | TogglePasteMenu
   | SetPasteName String
   | SetPasteBody String
@@ -118,6 +121,7 @@ appComponent = H.mkComponent
       , sessionMenuOpen: false
       , windowMenuOpen: false
       , terminalMenuOpen: false
+      , terminalSelectionMode: false
       , pasteMenuOpen: false
       , pastes: []
       , pasteName: ""
@@ -303,6 +307,25 @@ renderTerminalActions state =
               )
           ]
           [ HH.button
+              [ cls "terminal-menu-item"
+              , HE.onClick \_ -> CopyTerminalText
+              ]
+              [ icon "copy"
+              , HH.text "Copy"
+              ]
+          , HH.button
+              [ cls
+                  ( "terminal-menu-item"
+                      <> if state.terminalSelectionMode then " active" else ""
+                  )
+              , HP.attr (HH.AttrName "aria-pressed")
+                  (if state.terminalSelectionMode then "true" else "false")
+              , HE.onClick \_ -> ToggleTerminalSelectionMode
+              ]
+              [ icon "scan-text"
+              , HH.text "Select"
+              ]
+          , HH.button
               [ cls "terminal-menu-item"
               , HE.onClick \_ -> SendEscape
               ]
@@ -740,6 +763,8 @@ handleAction = case _ of
               if attached == "" then false else state.windowMenuOpen
           , terminalMenuOpen =
               if attached == "" then false else state.terminalMenuOpen
+          , terminalSelectionMode =
+              if attached == "" then false else state.terminalSelectionMode
           , pasteMenuOpen =
               if attached == "" then false else state.pasteMenuOpen
           , status = show (Array.length sessions) <> " session(s)"
@@ -855,6 +880,12 @@ handleAction = case _ of
   SendLive ->
     returnAttachedSessionLive
 
+  CopyTerminalText ->
+    copyTerminalText
+
+  ToggleTerminalSelectionMode ->
+    toggleTerminalSelectionMode
+
   SetPasteName value ->
     H.modify_ _ { pasteName = value }
 
@@ -953,7 +984,9 @@ handleAction = case _ of
           when (state.attachedSession == session.id) do
             case state.terminal of
               Nothing -> pure unit
-              Just terminal -> liftEffect $ Terminal.disconnectTerminal terminal
+              Just terminal -> liftEffect do
+                Terminal.setSelectionMode terminal false
+                Terminal.disconnectTerminal terminal
           base <- liftEffect $ Browser.apiBase state.server
           result <- liftAff $ attempt (Api.deleteSession base session.id)
           case result of
@@ -974,6 +1007,9 @@ handleAction = case _ of
                     else state.windows
                 , sessionMenuOpen = false
                 , terminalMenuOpen = false
+                , terminalSelectionMode =
+                    if state.attachedSession == session.id then false
+                    else state.terminalSelectionMode
                 , pasteMenuOpen = false
                 , windowMenuOpen =
                     if state.attachedSession == session.id then false
@@ -992,6 +1028,7 @@ handleAction = case _ of
       Just terminal -> do
         url <- liftEffect $ Browser.sessionTerminalWsUrl state.server sessionId
         let label = "session " <> sessionId
+        liftEffect $ Terminal.setSelectionMode terminal false
         liftEffect $ Terminal.attachTerminal terminal url label
         H.modify_ _
           { selectedSession = sessionId
@@ -1000,6 +1037,7 @@ handleAction = case _ of
           , sessionMenuOpen = false
           , windowMenuOpen = false
           , terminalMenuOpen = false
+          , terminalSelectionMode = false
           , pasteMenuOpen = false
           , status = "connecting: " <> label
           }
@@ -1013,6 +1051,7 @@ handleAction = case _ of
         { selectedSession = sessionId
         , sessionMenuOpen = false
         , terminalMenuOpen = false
+        , terminalSelectionMode = false
         , pasteMenuOpen = false
         }
       syncUi
@@ -1081,13 +1120,16 @@ handleAction = case _ of
     state <- H.get
     case state.terminal of
       Nothing -> pure unit
-      Just terminal -> liftEffect $ Terminal.disconnectTerminal terminal
+      Just terminal -> liftEffect do
+        Terminal.setSelectionMode terminal false
+        Terminal.disconnectTerminal terminal
     H.modify_ _
       { attachedSession = ""
       , windows = []
       , sessionMenuOpen = false
       , windowMenuOpen = false
       , terminalMenuOpen = false
+      , terminalSelectionMode = false
       , pasteMenuOpen = false
       , status = "disconnected"
       }
@@ -1104,6 +1146,7 @@ handleAction = case _ of
           , sessionMenuOpen = false
           , windowMenuOpen = false
           , terminalMenuOpen = false
+          , terminalSelectionMode = false
           , pasteMenuOpen = false
           , status = "disconnected"
           }
@@ -1111,6 +1154,7 @@ handleAction = case _ of
         H.modify_ _
           { status = "connection error"
           , terminalMenuOpen = false
+          , terminalSelectionMode = false
           , pasteMenuOpen = false
           }
       TerminalLinkOpened ->
@@ -1139,6 +1183,54 @@ sendTerminalAction send = do
     Just terminal -> do
       liftEffect $ send terminal
       H.modify_ _ { terminalMenuOpen = false }
+  syncUi
+
+copyTerminalText
+  :: forall o
+   . H.HalogenM State Action Slots o Aff Unit
+copyTerminalText = do
+  state <- H.get
+  case state.terminal of
+    Nothing ->
+      H.modify_ _
+        { status = "terminal not ready"
+        , terminalMenuOpen = false
+        }
+    Just terminal -> do
+      result <- liftAff $ attempt (Terminal.copySelection terminal)
+      case result of
+        Left err ->
+          H.modify_ _
+            { status = "copy failed: " <> message err
+            , terminalMenuOpen = false
+            }
+        Right source ->
+          H.modify_ _
+            { status = copyStatus source
+            , terminalMenuOpen = false
+            }
+  syncUi
+
+toggleTerminalSelectionMode
+  :: forall o
+   . H.HalogenM State Action Slots o Aff Unit
+toggleTerminalSelectionMode = do
+  state <- H.get
+  case state.terminal of
+    Nothing ->
+      H.modify_ _
+        { status = "terminal not ready"
+        , terminalMenuOpen = false
+        }
+    Just terminal -> do
+      let next = not state.terminalSelectionMode
+      liftEffect $ Terminal.setSelectionMode terminal next
+      H.modify_ _
+        { terminalSelectionMode = next
+        , terminalMenuOpen = false
+        , status =
+            if next then "selection mode" else "terminal mode"
+        }
   syncUi
 
 savePasteSnippet
@@ -1324,6 +1416,13 @@ pastePreview = identity
 pastePayload :: String -> Boolean -> String
 pastePayload body enter =
   if enter then body <> "\n" else body
+
+copyStatus :: String -> String
+copyStatus source =
+  case source of
+    "selection" -> "copied selection"
+    "screen" -> "copied screen"
+    _ -> "nothing to copy"
 
 upsertPaste :: PasteSnippet -> Array PasteSnippet -> Array PasteSnippet
 upsertPaste paste pastes =

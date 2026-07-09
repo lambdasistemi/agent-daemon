@@ -10,13 +10,17 @@ module AgentDaemon.FFI.Terminal
   , sendCtrlBCommand
   , sendEscape
   , sendText
+  , copySelection
+  , setSelectionMode
   , setTerminalFontSize
   , setTerminalTheme
   ) where
 
 import Prelude
 
+import Control.Promise (Promise, toAffE)
 import Effect (Effect)
+import Effect.Aff (Aff)
 
 foreign import data TerminalController :: Type
 
@@ -48,6 +52,14 @@ foreign import sendCtrlB :: TerminalController -> Effect Unit
 foreign import sendCtrlBCommand :: TerminalController -> Effect Unit
 
 foreign import sendText :: TerminalController -> String -> Effect Unit
+
+foreign import copySelectionImpl :: TerminalController -> Effect (Promise String)
+
+copySelection :: TerminalController -> Aff String
+copySelection terminal =
+  toAffE (copySelectionImpl terminal)
+
+foreign import setSelectionMode :: TerminalController -> Boolean -> Effect Unit
 
 foreign import setTerminalTheme :: TerminalController -> String -> Effect Unit
 

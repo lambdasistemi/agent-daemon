@@ -160,6 +160,7 @@ const installTouchScrolling = (controller, target) => {
   target.addEventListener(
     "touchstart",
     (event) => {
+      if (controller.selectionMode) return;
       if (event.touches.length !== 1) return;
       lastY = event.touches[0].clientY;
       moved = false;
@@ -172,6 +173,7 @@ const installTouchScrolling = (controller, target) => {
   target.addEventListener(
     "touchmove",
     (event) => {
+      if (controller.selectionMode) return;
       if (event.touches.length !== 1) return;
       const nextY = event.touches[0].clientY;
       const deltaY = nextY - lastY;
@@ -201,6 +203,53 @@ const blurTerminalInput = (controller) => {
 const shouldAutoFocusTerminal = () => {
   if (typeof window.matchMedia !== "function") return true;
   return window.matchMedia("(pointer: fine)").matches;
+};
+
+const visibleTerminalText = (controller) => {
+  const buffer = controller.term.buffer && controller.term.buffer.active;
+  if (!buffer) return "";
+  const start = buffer.viewportY || 0;
+  const end = Math.min(buffer.length || 0, start + controller.term.rows);
+  const lines = [];
+  for (let index = start; index < end; index += 1) {
+    const line = buffer.getLine(index);
+    lines.push(line ? line.translateToString(true) : "");
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  return lines.join("\n");
+};
+
+const fallbackClipboardWrite = (text) =>
+  new Promise((resolve, reject) => {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-10000px";
+    textarea.style.top = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      if (document.execCommand("copy")) {
+        resolve();
+      } else {
+        reject(new Error("copy command failed"));
+      }
+    } catch (error) {
+      reject(error);
+    } finally {
+      textarea.remove();
+    }
+  });
+
+const writeClipboard = async (text) => {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    await navigator.clipboard.writeText(text);
+  } else {
+    await fallbackClipboardWrite(text);
+  }
 };
 
 export const createTerminal = (theme) => (fontSize) => (callbacks) => () => {
@@ -248,6 +297,7 @@ export const createTerminal = (theme) => (fontSize) => (callbacks) => () => {
     visibilityListener: null,
     pageShowListener: null,
     viewportResizeListener: null,
+    selectionMode: false,
     callbacks
   };
 
@@ -360,6 +410,24 @@ export const sendCtrlBCommand = (controller) => () => {
 
 export const sendText = (controller) => (text) => () => {
   sendTerminalData(controller, normalizePasteData(text));
+};
+
+export const copySelectionImpl = (controller) => async () => {
+  const selection =
+    typeof controller.term.getSelection === "function"
+      ? controller.term.getSelection()
+      : "";
+  const text = selection || visibleTerminalText(controller);
+  if (!text) return "empty";
+  await writeClipboard(text);
+  return selection ? "selection" : "screen";
+};
+
+export const setSelectionMode = (controller) => (enabled) => () => {
+  controller.selectionMode = enabled;
+  if (controller.element) {
+    controller.element.classList.toggle("select-mode", enabled);
+  }
 };
 
 export const setTerminalTheme = (controller) => (theme) => () => {

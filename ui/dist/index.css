@@ -258,6 +258,15 @@ main {
   font-family: "AgentJetBrainsMono", "Symbols Nerd Font Mono", "AgentSymbols", "Noto Sans Mono", "Noto Sans Symbols 2", "Apple Color Emoji", "Segoe UI Emoji", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+#terminal.select-mode {
+  touch-action: auto;
+}
+
+#terminal.select-mode .xterm-screen,
+#terminal.select-mode .xterm-viewport {
+  cursor: text;
+}
+
 .section {
   display: grid;
   gap: 8px;
@@ -443,7 +452,8 @@ button svg {
 }
 
 .session-menu-item.active,
-.window-menu-item.active {
+.window-menu-item.active,
+.terminal-menu-item.active {
   border-color: var(--active-border);
   background: var(--surface-active);
 }
