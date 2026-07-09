@@ -48,6 +48,7 @@ type State =
   , pastes :: Array PasteSnippet
   , pasteName :: String
   , pasteBody :: String
+  , pasteEnter :: Boolean
   , autoAttachAttempted :: Boolean
   , pendingStop :: Maybe Session
   , confirmInput :: String
@@ -81,6 +82,8 @@ data Action
   | TogglePasteMenu
   | SetPasteName String
   | SetPasteBody String
+  | TogglePasteEnter
+  | InsertPasteNewline
   | SavePaste
   | ClearPaste
   | EditPaste String
@@ -117,6 +120,7 @@ appComponent = H.mkComponent
       , pastes: []
       , pasteName: ""
       , pasteBody: ""
+      , pasteEnter: false
       , autoAttachAttempted: false
       , pendingStop: Nothing
       , confirmInput: ""
@@ -364,6 +368,12 @@ renderPasteItem paste =
         , HH.span
             [ cls "paste-preview" ]
             [ HH.text (pastePreview paste.body) ]
+        , if paste.enter then
+            HH.span
+              [ cls "paste-badge" ]
+              [ HH.text "Enter" ]
+          else
+            HH.text ""
         ]
     , HH.button
         [ cls "paste-icon-button"
@@ -400,6 +410,28 @@ renderPasteEditor state =
         , HE.onValueInput SetPasteBody
         ]
     , HH.div
+        [ cls "paste-options" ]
+        [ HH.button
+            [ cls "paste-option-button"
+            , HE.onClick \_ -> InsertPasteNewline
+            ]
+            [ icon "corner-down-left"
+            , HH.text "New line"
+            ]
+        , HH.button
+            [ cls
+                ( "paste-option-button"
+                    <> if state.pasteEnter then " active" else ""
+                )
+            , HP.attr (HH.AttrName "aria-pressed")
+                (if state.pasteEnter then "true" else "false")
+            , HE.onClick \_ -> TogglePasteEnter
+            ]
+            [ icon "send-horizontal"
+            , HH.text "Enter"
+            ]
+        ]
+    , HH.div
         [ cls "paste-editor-actions" ]
         [ HH.button
             [ HE.onClick \_ -> PasteDraft
@@ -417,7 +449,7 @@ renderPasteEditor state =
             ]
         , HH.button
             [ HE.onClick \_ -> ClearPaste ]
-            [ HH.text "Clear" ]
+            [ HH.text "New" ]
         ]
     ]
 
@@ -807,6 +839,16 @@ handleAction = case _ of
   SetPasteBody value ->
     H.modify_ _ { pasteBody = value }
 
+  TogglePasteEnter -> do
+    state <- H.get
+    H.modify_ _ { pasteEnter = not state.pasteEnter }
+    syncUi
+
+  InsertPasteNewline -> do
+    state <- H.get
+    H.modify_ _ { pasteBody = state.pasteBody <> "\n" }
+    syncUi
+
   SavePaste ->
     savePasteSnippet
 
@@ -814,6 +856,7 @@ handleAction = case _ of
     H.modify_ _
       { pasteName = ""
       , pasteBody = ""
+      , pasteEnter = false
       }
     syncUi
 
@@ -825,6 +868,7 @@ handleAction = case _ of
         H.modify_ _
           { pasteName = paste.name
           , pasteBody = paste.body
+          , pasteEnter = paste.enter
           , pasteMenuOpen = true
           }
     syncUi
@@ -838,11 +882,11 @@ handleAction = case _ of
       Nothing ->
         H.modify_ _ { status = "paste not found" }
       Just paste ->
-        pasteTerminalText paste.name paste.body
+        pasteTerminalText paste.name paste.body paste.enter
 
   PasteDraft -> do
     state <- H.get
-    pasteTerminalText "draft" state.pasteBody
+    pasteTerminalText "draft" state.pasteBody state.pasteEnter
 
   OpenStopDialog session -> do
     H.modify_ _
@@ -1073,11 +1117,18 @@ savePasteSnippet = do
     H.modify_ _ { status = "paste needs name and text" }
   else do
     let
-      paste = { name: state.pasteName, body: state.pasteBody }
+      paste =
+        { name: state.pasteName
+        , body: state.pasteBody
+        , enter: state.pasteEnter
+        }
       pastes = upsertPaste paste state.pastes
     liftEffect $ Browser.savePastes pasteStorageKey pastes
     H.modify_ _
       { pastes = pastes
+      , pasteName = ""
+      , pasteBody = ""
+      , pasteEnter = false
       , status = "saved paste: " <> state.pasteName
       }
   syncUi
@@ -1094,6 +1145,7 @@ deletePasteSnippet name = do
     { pastes = pastes
     , pasteName = if state.pasteName == name then "" else state.pasteName
     , pasteBody = if state.pasteName == name then "" else state.pasteBody
+    , pasteEnter = if state.pasteName == name then false else state.pasteEnter
     , status = "deleted paste: " <> name
     }
   syncUi
@@ -1102,8 +1154,9 @@ pasteTerminalText
   :: forall o
    . String
   -> String
+  -> Boolean
   -> H.HalogenM State Action Slots o Aff Unit
-pasteTerminalText label body = do
+pasteTerminalText label body enter = do
   state <- H.get
   if body == "" then
     H.modify_ _ { status = "nothing to paste" }
@@ -1115,7 +1168,7 @@ pasteTerminalText label body = do
           , pasteMenuOpen = false
           }
       Just terminal -> do
-        liftEffect $ Terminal.sendText terminal body
+        liftEffect $ Terminal.sendText terminal (pastePayload body enter)
         H.modify_ _
           { status = "pasted: " <> label
           , pasteMenuOpen = false
@@ -1231,6 +1284,10 @@ windowLabel windowInfo =
 
 pastePreview :: String -> String
 pastePreview = identity
+
+pastePayload :: String -> Boolean -> String
+pastePayload body enter =
+  if enter then body <> "\n" else body
 
 upsertPaste :: PasteSnippet -> Array PasteSnippet -> Array PasteSnippet
 upsertPaste paste pastes =
