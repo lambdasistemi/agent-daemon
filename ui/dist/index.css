@@ -3,7 +3,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  src: url("fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
 }
 
 @font-face {
@@ -11,7 +11,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/noto-sans-symbols-2-symbols-400-normal.woff2") format("woff2");
+  src: url("fonts/noto-sans-symbols-2-symbols-400-normal.woff2") format("woff2");
 }
 
 :root {
