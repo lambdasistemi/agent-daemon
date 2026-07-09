@@ -401,6 +401,12 @@ button svg {
   padding-top: 8px;
 }
 
+.paste-new-button {
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
 .paste-textarea {
   height: 112px;
   max-height: 38vh;

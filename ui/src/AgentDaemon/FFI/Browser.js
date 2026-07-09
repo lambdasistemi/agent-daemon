@@ -37,7 +37,7 @@ export const loadPastes = (key) => () => {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .map(normalizePaste)
-      .filter((paste) => paste.name && paste.body);
+      .filter((paste) => paste.name && (paste.body || paste.enter));
   } catch (_) {
     return [];
   }
@@ -45,7 +45,9 @@ export const loadPastes = (key) => () => {
 
 export const savePastes = (key) => (pastes) => () => {
   const normalized = Array.isArray(pastes)
-    ? pastes.map(normalizePaste).filter((paste) => paste.name && paste.body)
+    ? pastes
+        .map(normalizePaste)
+        .filter((paste) => paste.name && (paste.body || paste.enter))
     : [];
   if (normalized.length === 0) {
     window.localStorage.removeItem(key);

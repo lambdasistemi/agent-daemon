@@ -49,6 +49,7 @@ type State =
   , pasteName :: String
   , pasteBody :: String
   , pasteEnter :: Boolean
+  , pasteEditorOpen :: Boolean
   , autoAttachAttempted :: Boolean
   , pendingStop :: Maybe Session
   , confirmInput :: String
@@ -84,6 +85,7 @@ data Action
   | SetPasteBody String
   | TogglePasteEnter
   | InsertPasteNewline
+  | NewPaste
   | SavePaste
   | ClearPaste
   | EditPaste String
@@ -121,6 +123,7 @@ appComponent = H.mkComponent
       , pasteName: ""
       , pasteBody: ""
       , pasteEnter: false
+      , pasteEditorOpen: false
       , autoAttachAttempted: false
       , pendingStop: Nothing
       , confirmInput: ""
@@ -339,7 +342,13 @@ renderPasteActions state =
                   <> if state.pasteMenuOpen then "" else " hidden"
               )
           ]
-          (renderPasteItems state <> [ renderPasteEditor state ])
+          ( renderPasteItems state
+              <>
+                if state.pasteEditorOpen then
+                  [ renderPasteEditor state ]
+                else
+                  [ renderPasteNewButton ]
+          )
       ]
 
 renderPasteItems
@@ -391,6 +400,16 @@ renderPasteItem paste =
         [ icon "trash-2" ]
     ]
 
+renderPasteNewButton :: H.ComponentHTML Action Slots Aff
+renderPasteNewButton =
+  HH.button
+    [ cls "paste-new-button"
+    , HE.onClick \_ -> NewPaste
+    ]
+    [ icon "plus"
+    , HH.text "New"
+    ]
+
 renderPasteEditor :: State -> H.ComponentHTML Action Slots Aff
 renderPasteEditor state =
   HH.div
@@ -435,21 +454,24 @@ renderPasteEditor state =
         [ cls "paste-editor-actions" ]
         [ HH.button
             [ HE.onClick \_ -> PasteDraft
-            , HP.disabled (state.pasteBody == "")
+            , HP.disabled (state.pasteBody == "" && not state.pasteEnter)
             ]
             [ icon "send"
             , HH.text "Paste"
             ]
         , HH.button
             [ HE.onClick \_ -> SavePaste
-            , HP.disabled (state.pasteName == "" || state.pasteBody == "")
+            , HP.disabled
+                ( state.pasteName == ""
+                    || (state.pasteBody == "" && not state.pasteEnter)
+                )
             ]
             [ icon "save"
             , HH.text "Save"
             ]
         , HH.button
             [ HE.onClick \_ -> ClearPaste ]
-            [ HH.text "New" ]
+            [ HH.text "Clear" ]
         ]
     ]
 
@@ -849,6 +871,15 @@ handleAction = case _ of
     H.modify_ _ { pasteBody = state.pasteBody <> "\n" }
     syncUi
 
+  NewPaste -> do
+    H.modify_ _
+      { pasteName = ""
+      , pasteBody = ""
+      , pasteEnter = false
+      , pasteEditorOpen = true
+      }
+    syncUi
+
   SavePaste ->
     savePasteSnippet
 
@@ -857,6 +888,7 @@ handleAction = case _ of
       { pasteName = ""
       , pasteBody = ""
       , pasteEnter = false
+      , pasteEditorOpen = true
       }
     syncUi
 
@@ -870,6 +902,7 @@ handleAction = case _ of
           , pasteBody = paste.body
           , pasteEnter = paste.enter
           , pasteMenuOpen = true
+          , pasteEditorOpen = true
           }
     syncUi
 
@@ -1113,7 +1146,7 @@ savePasteSnippet
    . H.HalogenM State Action Slots o Aff Unit
 savePasteSnippet = do
   state <- H.get
-  if state.pasteName == "" || state.pasteBody == "" then
+  if state.pasteName == "" || (state.pasteBody == "" && not state.pasteEnter) then
     H.modify_ _ { status = "paste needs name and text" }
   else do
     let
@@ -1129,6 +1162,7 @@ savePasteSnippet = do
       , pasteName = ""
       , pasteBody = ""
       , pasteEnter = false
+      , pasteEditorOpen = false
       , status = "saved paste: " <> state.pasteName
       }
   syncUi
@@ -1146,6 +1180,8 @@ deletePasteSnippet name = do
     , pasteName = if state.pasteName == name then "" else state.pasteName
     , pasteBody = if state.pasteName == name then "" else state.pasteBody
     , pasteEnter = if state.pasteName == name then false else state.pasteEnter
+    , pasteEditorOpen =
+        if state.pasteName == name then false else state.pasteEditorOpen
     , status = "deleted paste: " <> name
     }
   syncUi
@@ -1158,7 +1194,7 @@ pasteTerminalText
   -> H.HalogenM State Action Slots o Aff Unit
 pasteTerminalText label body enter = do
   state <- H.get
-  if body == "" then
+  if body == "" && not enter then
     H.modify_ _ { status = "nothing to paste" }
   else
     case state.terminal of
