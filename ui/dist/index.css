@@ -259,7 +259,7 @@ main {
 }
 
 #terminal.select-mode {
-  touch-action: auto;
+  touch-action: none;
 }
 
 #terminal.select-mode .xterm-screen,

@@ -152,6 +152,118 @@ const terminalLineHeight = (controller) => {
   return Math.max(8, rect.height / controller.term.rows);
 };
 
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const terminalScreenElement = (controller) =>
+  (controller.element && controller.element.querySelector(".xterm-screen")) ||
+  controller.element;
+
+const touchToBufferCell = (controller, touch) => {
+  const screen = terminalScreenElement(controller);
+  const buffer = controller.term.buffer && controller.term.buffer.active;
+  if (!screen || !buffer || !controller.term.cols || !controller.term.rows) return null;
+
+  const rect = screen.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+
+  const col = clamp(
+    Math.floor(((touch.clientX - rect.left) / rect.width) * controller.term.cols),
+    0,
+    controller.term.cols - 1
+  );
+  const visibleRow = clamp(
+    Math.floor(((touch.clientY - rect.top) / rect.height) * controller.term.rows),
+    0,
+    controller.term.rows - 1
+  );
+
+  return {
+    col,
+    row: (buffer.viewportY || 0) + visibleRow
+  };
+};
+
+const selectionRange = (controller, start, end) => {
+  let first = start;
+  let last = end;
+  if (last.row < first.row || (last.row === first.row && last.col < first.col)) {
+    first = end;
+    last = start;
+  }
+
+  return {
+    col: first.col,
+    row: first.row,
+    length: Math.max(
+      1,
+      (last.row - first.row) * controller.term.cols + (last.col - first.col) + 1
+    )
+  };
+};
+
+const handleTouchSelectionStart = (controller, event) => {
+  if (!controller.selectionMode) return false;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  if (event.touches.length !== 1) return true;
+
+  const anchor = touchToBufferCell(controller, event.touches[0]);
+  if (!anchor) return true;
+
+  blurTerminalInput(controller);
+  if (typeof controller.term.clearSelection === "function") {
+    controller.term.clearSelection();
+  }
+  controller.touchSelectionAnchor = anchor;
+  controller.touchSelectionStart = {
+    x: event.touches[0].clientX,
+    y: event.touches[0].clientY
+  };
+  controller.touchSelectionMoved = false;
+  return true;
+};
+
+const handleTouchSelectionMove = (controller, event) => {
+  if (!controller.selectionMode) return false;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  if (event.touches.length !== 1) return true;
+
+  if (!controller.touchSelectionAnchor) return true;
+
+  const touch = event.touches[0];
+  const current = touchToBufferCell(controller, touch);
+  if (!current) return true;
+
+  const start = controller.touchSelectionStart;
+  if (start && !controller.touchSelectionMoved) {
+    const moved =
+      Math.abs(touch.clientX - start.x) > 3 || Math.abs(touch.clientY - start.y) > 3;
+    if (!moved) return true;
+    controller.touchSelectionMoved = true;
+  }
+
+  const range = selectionRange(controller, controller.touchSelectionAnchor, current);
+  if (typeof controller.term.select === "function") {
+    controller.term.select(range.col, range.row, range.length);
+  }
+  return true;
+};
+
+const handleTouchSelectionEnd = (controller, event) => {
+  if (!controller.selectionMode) return false;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  controller.touchSelectionAnchor = null;
+  controller.touchSelectionStart = null;
+  controller.touchSelectionMoved = false;
+  return true;
+};
+
 const installTouchScrolling = (controller, target) => {
   let lastY = 0;
   let moved = false;
@@ -160,7 +272,7 @@ const installTouchScrolling = (controller, target) => {
   target.addEventListener(
     "touchstart",
     (event) => {
-      if (controller.selectionMode) return;
+      if (handleTouchSelectionStart(controller, event)) return;
       if (event.touches.length !== 1) return;
       lastY = event.touches[0].clientY;
       moved = false;
@@ -173,7 +285,7 @@ const installTouchScrolling = (controller, target) => {
   target.addEventListener(
     "touchmove",
     (event) => {
-      if (controller.selectionMode) return;
+      if (handleTouchSelectionMove(controller, event)) return;
       if (event.touches.length !== 1) return;
       const nextY = event.touches[0].clientY;
       const deltaY = nextY - lastY;
@@ -188,6 +300,22 @@ const installTouchScrolling = (controller, target) => {
         controller.callbacks.onScrollGesture(lines)();
         remainder -= lines * lineHeight;
       }
+    },
+    { passive: false, capture: true }
+  );
+
+  target.addEventListener(
+    "touchend",
+    (event) => {
+      handleTouchSelectionEnd(controller, event);
+    },
+    { passive: false, capture: true }
+  );
+
+  target.addEventListener(
+    "touchcancel",
+    (event) => {
+      handleTouchSelectionEnd(controller, event);
     },
     { passive: false, capture: true }
   );
@@ -298,6 +426,9 @@ export const createTerminal = (theme) => (fontSize) => (callbacks) => () => {
     pageShowListener: null,
     viewportResizeListener: null,
     selectionMode: false,
+    touchSelectionAnchor: null,
+    touchSelectionStart: null,
+    touchSelectionMoved: false,
     callbacks
   };
 
@@ -425,6 +556,9 @@ export const copySelectionImpl = (controller) => async () => {
 
 export const setSelectionMode = (controller) => (enabled) => () => {
   controller.selectionMode = enabled;
+  controller.touchSelectionAnchor = null;
+  controller.touchSelectionStart = null;
+  controller.touchSelectionMoved = false;
   if (controller.element) {
     controller.element.classList.toggle("select-mode", enabled);
   }

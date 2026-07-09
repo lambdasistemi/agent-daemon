@@ -1229,7 +1229,7 @@ toggleTerminalSelectionMode = do
         { terminalSelectionMode = next
         , terminalMenuOpen = false
         , status =
-            if next then "selection mode" else "terminal mode"
+            if next then "touch selection mode" else "terminal mode"
         }
   syncUi
 
