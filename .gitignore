@@ -3,3 +3,9 @@ dist-newstyle/
 result
 WIP.md
 cabal.project.local
+ui/.spago/
+ui/dist/fonts/
+ui/dist/index.js
+ui/dist/xterm.css
+ui/node_modules/
+ui/output/

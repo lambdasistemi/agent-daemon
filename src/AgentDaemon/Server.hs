@@ -12,11 +12,16 @@ module AgentDaemon.Server
 -- into a single warp server using wai-websockets middleware.
 
 import AgentDaemon.Api (apiApp)
-import AgentDaemon.Terminal (terminalApp)
-import AgentDaemon.Types (SessionId (..), SessionManager)
+import AgentDaemon.Terminal (paneTerminalApp, terminalApp)
+import AgentDaemon.Types
+    ( PaneId (..)
+    , SessionId (..)
+    , SessionManager
+    )
+import Data.ByteString qualified as BS
 import Data.String (fromString)
-import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
+import Network.HTTP.Types.URI (urlDecode)
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Handler.WebSockets qualified as WaiWS
 import Network.WebSockets qualified as WS
@@ -54,11 +59,13 @@ startServer host port baseDir staticDir mgr = do
 wsApp :: SessionManager -> WS.ServerApp
 wsApp mgr pending = do
     let path =
-            T.splitOn
-                "/"
-                ( TE.decodeUtf8 $
-                    WS.requestPath
-                        (WS.pendingRequest pending)
+            map
+                (TE.decodeUtf8 . urlDecode True)
+                ( BS.split
+                    47
+                    ( WS.requestPath $
+                        WS.pendingRequest pending
+                    )
                 )
     case path of
         ["", "sessions", sid, "terminal"] ->
@@ -66,6 +73,13 @@ wsApp mgr pending = do
                 mgr
                 (SessionId sid)
                 sid
+                pending
+        ["", "sessions", sid, "panes", pane, "terminal"] ->
+            paneTerminalApp
+                mgr
+                (SessionId sid)
+                sid
+                (PaneId pane)
                 pending
         _ ->
             WS.rejectRequest

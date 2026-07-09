@@ -197,13 +197,13 @@ listBranchesByPattern
     -> String
     -- ^ pattern (e.g. @"feat\/issue-*"@)
     -> IO (Either GitError [String])
-listBranchesByPattern repoPath pattern = do
+listBranchesByPattern repoPath branchPattern = do
     result <-
         readGit
             repoPath
             [ "branch"
             , "--list"
-            , pattern
+            , branchPattern
             , "--format=%(refname:short)"
             ]
     pure $ case result of

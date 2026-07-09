@@ -2,19 +2,23 @@
 
 module AgentDaemon.Types
     ( SessionId (..)
+    , PaneId (..)
     , Repo (..)
     , SessionState (..)
     , Session (..)
     , SessionManager (..)
-    , LaunchRequest (..)
+    , PaneInfo (..)
+    , WindowInfo (..)
+    , WindowSelectRequest (..)
+    , ScrollRequest (..)
+    , PaneSplitDirection (..)
+    , PaneSplitRequest (..)
+    , LayoutRequest (..)
     , WorktreeInfo (..)
     , BranchInfo (..)
     , SyncStatus (..)
     , GitError (..)
     , newSessionManager
-    , mkSessionId
-    , mkTmuxName
-    , mkWorktreePath
     , updateSessionActivity
     ) where
 
@@ -24,8 +28,7 @@ module AgentDaemon.Types
 -- Copyright   : (c) Paolo Veronelli, 2026
 -- License     : MIT
 --
--- Domain types for agent session management. A session maps
--- a GitHub issue to a tmux session running in a git worktree.
+-- Domain types for tmux-backed session management.
 
 import Control.Concurrent.STM
     ( TVar
@@ -64,8 +67,13 @@ data GitError = GitError
     }
     deriving stock (Eq, Show)
 
--- | Unique identifier for a session, derived from repo and issue.
+-- | Unique identifier for a session, matching the tmux session name.
 newtype SessionId = SessionId {unSessionId :: Text}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (FromJSON, ToJSON)
+
+-- | Tmux pane identifier, for example @%42@.
+newtype PaneId = PaneId {unPaneId :: Text}
     deriving stock (Eq, Ord, Show, Generic)
     deriving newtype (FromJSON, ToJSON)
 
@@ -86,7 +94,7 @@ instance ToJSON Repo where
 
 -- | Current state of an agent session.
 data SessionState
-    = -- | worktree and tmux being created
+    = -- | tmux session being created
       Creating
     | -- | tmux session running, no terminal attached
       Running
@@ -117,24 +125,18 @@ instance FromJSON SessionState where
                 Just reason -> pure (Failed reason)
                 Nothing -> fail "unknown state"
 
--- | An agent session binding an issue to a tmux session.
+-- | A browser-controllable tmux session.
 data Session = Session
     { sessionId :: SessionId
     -- ^ unique session identifier
-    , sessionRepo :: Repo
-    -- ^ target repository
-    , sessionIssue :: Int
-    -- ^ issue number
-    , sessionWorktree :: FilePath
-    -- ^ path to the git worktree
     , sessionTmuxName :: Text
     -- ^ tmux session name
+    , sessionCurrentPath :: FilePath
+    -- ^ current path of the active pane at recovery time
     , sessionState :: SessionState
     -- ^ current session state
     , sessionCreatedAt :: UTCTime
     -- ^ creation timestamp
-    , sessionPrompt :: Text
-    -- ^ initial prompt sent to Claude
     , sessionLastActivity :: UTCTime
     -- ^ last terminal I/O timestamp
     }
@@ -153,50 +155,111 @@ newSessionManager :: IO SessionManager
 newSessionManager =
     SessionManager <$> newTVarIO Map.empty
 
--- | Request to launch a new agent session.
-data LaunchRequest = LaunchRequest
-    { launchRepo :: Repo
-    -- ^ target repository
-    , launchIssue :: Int
-    -- ^ issue number
+-- | Metadata for a tmux pane inside a session.
+data PaneInfo = PaneInfo
+    { paneId :: PaneId
+    -- ^ stable tmux pane identifier
+    , paneIndex :: Int
+    -- ^ pane index within the window
+    , paneActive :: Bool
+    -- ^ whether tmux currently marks this pane active
+    , paneCurrentCommand :: Text
+    -- ^ foreground command name reported by tmux
+    , paneCurrentPath :: FilePath
+    -- ^ current working directory reported by tmux
+    , paneWidth :: Int
+    -- ^ pane width in terminal columns
+    , paneHeight :: Int
+    -- ^ pane height in terminal rows
+    , paneWindowIndex :: Int
+    -- ^ tmux window index containing the pane
+    , paneWindowName :: Text
+    -- ^ tmux window name containing the pane
+    , paneWindowActive :: Bool
+    -- ^ whether the containing tmux window is active
     }
     deriving stock (Eq, Show, Generic)
 
-instance FromJSON LaunchRequest where
+instance ToJSON PaneInfo where
+    toJSON = genericToJSON stripPrefix
+
+-- | Metadata for a tmux window inside a session.
+data WindowInfo = WindowInfo
+    { windowIndex :: Int
+    -- ^ tmux window index
+    , windowName :: Text
+    -- ^ tmux window name
+    , windowActive :: Bool
+    -- ^ whether tmux currently marks this window active
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON WindowInfo where
+    toJSON = genericToJSON stripPrefix
+
+-- | Request body for selecting a tmux window.
+newtype WindowSelectRequest = WindowSelectRequest
+    { selectIndex :: Int
+    -- ^ tmux window index to select
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON WindowSelectRequest where
     parseJSON = genericParseJSON stripPrefix
 
--- | Build a session ID from repo name and issue number.
-mkSessionId
-    :: Repo
-    -> Int
-    -- ^ issue number
-    -> SessionId
-mkSessionId Repo{repoName} issue =
-    SessionId $ repoName <> "-" <> T.pack (show issue)
+-- | Request body for scrolling a tmux pane from touch gestures.
+newtype ScrollRequest = ScrollRequest
+    { scrollLines :: Int
+    -- ^ Positive values scroll back; negative values scroll toward live output.
+    }
+    deriving stock (Eq, Show, Generic)
 
--- | Build the tmux session name.
-mkTmuxName
-    :: Repo
-    -> Int
-    -- ^ issue number
-    -> Text
-mkTmuxName Repo{repoName} issue =
-    repoName <> "-" <> T.pack (show issue)
+instance FromJSON ScrollRequest where
+    parseJSON = genericParseJSON stripPrefix
 
--- | Build the worktree path under a base directory.
-mkWorktreePath
-    :: FilePath
-    -- ^ base directory (e.g. @\/code@)
-    -> Repo
-    -> Int
-    -- ^ issue number
-    -> FilePath
-mkWorktreePath baseDir Repo{repoName} issue =
-    baseDir
-        <> "/"
-        <> T.unpack repoName
-        <> "-issue-"
-        <> show issue
+-- | Direction to split a pane.
+data PaneSplitDirection
+    = -- | left/right split, corresponding to @tmux split-window -h@
+      SplitHorizontal
+    | -- | top/bottom split, corresponding to @tmux split-window -v@
+      SplitVertical
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON PaneSplitDirection where
+    toJSON SplitHorizontal = Aeson.String "horizontal"
+    toJSON SplitVertical = Aeson.String "vertical"
+
+instance FromJSON PaneSplitDirection where
+    parseJSON = Aeson.withText "PaneSplitDirection" $ \case
+        "horizontal" -> pure SplitHorizontal
+        "vertical" -> pure SplitVertical
+        _ -> fail "expected horizontal or vertical"
+
+-- | Request body for splitting a pane.
+data PaneSplitRequest = PaneSplitRequest
+    { splitTarget :: Maybe PaneId
+    -- ^ pane to split; defaults to the session's active pane
+    , splitDirection :: PaneSplitDirection
+    -- ^ horizontal or vertical split
+    , splitCwd :: Maybe FilePath
+    -- ^ optional working directory for the new pane
+    , splitCommand :: Maybe Text
+    -- ^ optional shell command for the new pane
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON PaneSplitRequest where
+    parseJSON = genericParseJSON stripPrefix
+
+-- | Request body for selecting a tmux layout.
+newtype LayoutRequest = LayoutRequest
+    { layout :: Text
+    -- ^ tmux layout name, for example @tiled@
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON LayoutRequest where
+    parseJSON = genericParseJSON stripPrefix
 
 -- | A worktree directory on disk, with repo and issue metadata.
 data WorktreeInfo = WorktreeInfo

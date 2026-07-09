@@ -15,8 +15,13 @@ module AgentDaemon.Api.Types
 
 import AgentDaemon.Types
     ( BranchInfo (..)
-    , LaunchRequest (..)
+    , LayoutRequest (..)
+    , PaneInfo (..)
+    , PaneSplitRequest (..)
+    , ScrollRequest (..)
     , Session (..)
+    , WindowInfo (..)
+    , WindowSelectRequest (..)
     , WorktreeInfo (..)
     )
 import Data.Aeson (Value)
@@ -28,6 +33,7 @@ import Servant.API
     , Get
     , JSON
     , Post
+    , QueryParam
     , Raw
     , ReqBody
     , (:<|>)
@@ -37,13 +43,48 @@ import Servant.API
 -- | The full REST API for agent-daemon.
 type AgentApi =
     "sessions"
-        :> ReqBody '[JSON] LaunchRequest
-        :> Post '[JSON] Value
-        :<|> "sessions"
-            :> Get '[JSON] [Session]
+        :> Get '[JSON] [Session]
         :<|> "sessions"
             :> Capture "sid" Text
+            :> QueryParam "confirm" Text
             :> Delete '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "panes"
+            :> Get '[JSON] [PaneInfo]
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "panes"
+            :> ReqBody '[JSON] PaneSplitRequest
+            :> Post '[JSON] PaneInfo
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "layout"
+            :> ReqBody '[JSON] LayoutRequest
+            :> Post '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "windows"
+            :> Get '[JSON] [WindowInfo]
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "windows"
+            :> "new"
+            :> Post '[JSON] WindowInfo
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "windows"
+            :> ReqBody '[JSON] WindowSelectRequest
+            :> Post '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "scroll"
+            :> ReqBody '[JSON] ScrollRequest
+            :> Post '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "live"
+            :> Post '[JSON] Value
         :<|> "worktrees"
             :> Get '[JSON] [WorktreeInfo]
         :<|> "branches"
