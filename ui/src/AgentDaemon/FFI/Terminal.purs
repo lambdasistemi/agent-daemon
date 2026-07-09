@@ -9,6 +9,7 @@ module AgentDaemon.FFI.Terminal
   , sendCtrlB
   , sendCtrlBCommand
   , sendEscape
+  , sendText
   , setTerminalFontSize
   , setTerminalTheme
   ) where
@@ -45,6 +46,8 @@ foreign import sendEscape :: TerminalController -> Effect Unit
 foreign import sendCtrlB :: TerminalController -> Effect Unit
 
 foreign import sendCtrlBCommand :: TerminalController -> Effect Unit
+
+foreign import sendText :: TerminalController -> String -> Effect Unit
 
 foreign import setTerminalTheme :: TerminalController -> String -> Effect Unit
 

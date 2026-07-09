@@ -5,7 +5,7 @@ import Prelude
 import AgentDaemon.Api as Api
 import AgentDaemon.FFI.Browser as Browser
 import AgentDaemon.FFI.Terminal as Terminal
-import AgentDaemon.Types (Session, WindowInfo)
+import AgentDaemon.Types (PasteSnippet, Session, WindowInfo)
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Int as Int
@@ -44,6 +44,10 @@ type State =
   , sessionMenuOpen :: Boolean
   , windowMenuOpen :: Boolean
   , terminalMenuOpen :: Boolean
+  , pasteMenuOpen :: Boolean
+  , pastes :: Array PasteSnippet
+  , pasteName :: String
+  , pasteBody :: String
   , autoAttachAttempted :: Boolean
   , pendingStop :: Maybe Session
   , confirmInput :: String
@@ -74,6 +78,15 @@ data Action
   | SendCtrlB
   | SendCtrlBCommand
   | SendLive
+  | TogglePasteMenu
+  | SetPasteName String
+  | SetPasteBody String
+  | SavePaste
+  | ClearPaste
+  | EditPaste String
+  | DeletePaste String
+  | PasteNamed String
+  | PasteDraft
   | OpenStopDialog Session
   | CloseStopDialog
   | SetConfirmInput String
@@ -100,6 +113,10 @@ appComponent = H.mkComponent
       , sessionMenuOpen: false
       , windowMenuOpen: false
       , terminalMenuOpen: false
+      , pasteMenuOpen: false
+      , pastes: []
+      , pasteName: ""
+      , pasteBody: ""
       , autoAttachAttempted: false
       , pendingStop: Nothing
       , confirmInput: ""
@@ -134,6 +151,7 @@ renderHeader state =
         , renderSessionSwitcher state
         , renderWindowSwitcher state
         , renderTerminalActions state
+        , renderPasteActions state
         , HH.div
             [ cls "settings-shell" ]
             [ iconOnlyButton "Settings" "settings" ToggleSettings
@@ -301,6 +319,107 @@ renderTerminalActions state =
               ]
           ]
       ]
+
+renderPasteActions :: State -> H.ComponentHTML Action Slots Aff
+renderPasteActions state =
+  if state.attachedSession == "" then
+    HH.text ""
+  else
+    HH.div
+      [ cls "paste-actions-shell" ]
+      [ iconOnlyButton "Paste snippets" "clipboard-list" TogglePasteMenu
+          (Just (if state.pasteMenuOpen then "true" else "false"))
+      , HH.div
+          [ cls
+              ( "paste-menu"
+                  <> if state.pasteMenuOpen then "" else " hidden"
+              )
+          ]
+          (renderPasteItems state <> [ renderPasteEditor state ])
+      ]
+
+renderPasteItems
+  :: State
+  -> Array (H.ComponentHTML Action Slots Aff)
+renderPasteItems state =
+  if Array.null state.pastes then
+    [ HH.div
+        [ cls "paste-menu-empty" ]
+        [ HH.text "no snippets" ]
+    ]
+  else
+    map renderPasteItem state.pastes
+
+renderPasteItem :: PasteSnippet -> H.ComponentHTML Action Slots Aff
+renderPasteItem paste =
+  HH.div
+    [ cls "paste-menu-row" ]
+    [ HH.button
+        [ cls "paste-snippet-button"
+        , HE.onClick \_ -> PasteNamed paste.name
+        ]
+        [ HH.span
+            [ cls "paste-name" ]
+            [ HH.text paste.name ]
+        , HH.span
+            [ cls "paste-preview" ]
+            [ HH.text (pastePreview paste.body) ]
+        ]
+    , HH.button
+        [ cls "paste-icon-button"
+        , HP.title ("Edit " <> paste.name)
+        , HP.attr (HH.AttrName "aria-label") ("Edit " <> paste.name)
+        , HE.onClick \_ -> EditPaste paste.name
+        ]
+        [ icon "pencil" ]
+    , HH.button
+        [ cls "paste-icon-button danger-outline"
+        , HP.title ("Delete " <> paste.name)
+        , HP.attr (HH.AttrName "aria-label") ("Delete " <> paste.name)
+        , HE.onClick \_ -> DeletePaste paste.name
+        ]
+        [ icon "trash-2" ]
+    ]
+
+renderPasteEditor :: State -> H.ComponentHTML Action Slots Aff
+renderPasteEditor state =
+  HH.div
+    [ cls "paste-editor" ]
+    [ HH.input
+        [ HP.id "paste-name"
+        , HP.type_ HP.InputText
+        , HP.placeholder "name"
+        , HP.value state.pasteName
+        , HE.onValueInput SetPasteName
+        ]
+    , HH.textarea
+        [ HP.id "paste-body"
+        , cls "paste-textarea"
+        , HP.placeholder "text"
+        , HP.value state.pasteBody
+        , HE.onValueInput SetPasteBody
+        ]
+    , HH.div
+        [ cls "paste-editor-actions" ]
+        [ HH.button
+            [ HE.onClick \_ -> PasteDraft
+            , HP.disabled (state.pasteBody == "")
+            ]
+            [ icon "send"
+            , HH.text "Paste"
+            ]
+        , HH.button
+            [ HE.onClick \_ -> SavePaste
+            , HP.disabled (state.pasteName == "" || state.pasteBody == "")
+            ]
+            [ icon "save"
+            , HH.text "Save"
+            ]
+        , HH.button
+            [ HE.onClick \_ -> ClearPaste ]
+            [ HH.text "Clear" ]
+        ]
+    ]
 
 renderWindowItem :: WindowInfo -> H.ComponentHTML Action Slots Aff
 renderWindowItem windowInfo =
@@ -500,6 +619,7 @@ handleAction = case _ of
     savedServer <- liftEffect $ Browser.loadItem "agent-daemon-server"
     savedTheme <- liftEffect $ Browser.loadItem "agent-daemon-theme"
     savedFontSize <- liftEffect $ Browser.loadItem "agent-daemon-terminal-font-size"
+    savedPastes <- liftEffect $ Browser.loadPastes pasteStorageKey
     let theme = if savedTheme == "light" then "light" else "dark"
     let terminalFontSize = parseTerminalFontSize savedFontSize
     liftEffect $ Browser.setDocumentTheme theme
@@ -523,6 +643,7 @@ handleAction = case _ of
       { server = savedServer
       , theme = theme
       , terminalFontSize = terminalFontSize
+      , pastes = savedPastes
       , terminal = Just terminal
       }
     liftEffect $ Terminal.mountTerminal terminal "terminal"
@@ -565,6 +686,8 @@ handleAction = case _ of
               if attached == "" then false else state.windowMenuOpen
           , terminalMenuOpen =
               if attached == "" then false else state.terminalMenuOpen
+          , pasteMenuOpen =
+              if attached == "" then false else state.pasteMenuOpen
           , status = show (Array.length sessions) <> " session(s)"
           }
         if shouldAutoAttach then
@@ -584,6 +707,7 @@ handleAction = case _ of
       { status = "server saved"
       , settingsOpen = false
       , terminalMenuOpen = false
+      , pasteMenuOpen = false
       }
     syncUi
 
@@ -614,6 +738,7 @@ handleAction = case _ of
       , sessionMenuOpen = false
       , windowMenuOpen = false
       , terminalMenuOpen = false
+      , pasteMenuOpen = false
       }
     syncUi
 
@@ -623,6 +748,7 @@ handleAction = case _ of
       { sessionMenuOpen = not state.sessionMenuOpen
       , windowMenuOpen = false
       , terminalMenuOpen = false
+      , pasteMenuOpen = false
       , settingsOpen = false
       }
     syncUi
@@ -634,6 +760,7 @@ handleAction = case _ of
         { windowMenuOpen = not state.windowMenuOpen
         , sessionMenuOpen = false
         , terminalMenuOpen = false
+        , pasteMenuOpen = false
         , settingsOpen = false
         }
       syncUi
@@ -645,6 +772,19 @@ handleAction = case _ of
         { terminalMenuOpen = not state.terminalMenuOpen
         , sessionMenuOpen = false
         , windowMenuOpen = false
+        , pasteMenuOpen = false
+        , settingsOpen = false
+        }
+      syncUi
+
+  TogglePasteMenu -> do
+    state <- H.get
+    when (state.attachedSession /= "") do
+      H.modify_ _
+        { pasteMenuOpen = not state.pasteMenuOpen
+        , sessionMenuOpen = false
+        , windowMenuOpen = false
+        , terminalMenuOpen = false
         , settingsOpen = false
         }
       syncUi
@@ -661,6 +801,49 @@ handleAction = case _ of
   SendLive ->
     returnAttachedSessionLive
 
+  SetPasteName value ->
+    H.modify_ _ { pasteName = value }
+
+  SetPasteBody value ->
+    H.modify_ _ { pasteBody = value }
+
+  SavePaste ->
+    savePasteSnippet
+
+  ClearPaste -> do
+    H.modify_ _
+      { pasteName = ""
+      , pasteBody = ""
+      }
+    syncUi
+
+  EditPaste name -> do
+    state <- H.get
+    case Array.find (\paste -> paste.name == name) state.pastes of
+      Nothing -> pure unit
+      Just paste ->
+        H.modify_ _
+          { pasteName = paste.name
+          , pasteBody = paste.body
+          , pasteMenuOpen = true
+          }
+    syncUi
+
+  DeletePaste name ->
+    deletePasteSnippet name
+
+  PasteNamed name -> do
+    state <- H.get
+    case Array.find (\paste -> paste.name == name) state.pastes of
+      Nothing ->
+        H.modify_ _ { status = "paste not found" }
+      Just paste ->
+        pasteTerminalText paste.name paste.body
+
+  PasteDraft -> do
+    state <- H.get
+    pasteTerminalText "draft" state.pasteBody
+
   OpenStopDialog session -> do
     H.modify_ _
       { pendingStop = Just session
@@ -668,6 +851,7 @@ handleAction = case _ of
       , sessionMenuOpen = false
       , windowMenuOpen = false
       , terminalMenuOpen = false
+      , pasteMenuOpen = false
       , settingsOpen = false
       }
     syncUi
@@ -713,6 +897,7 @@ handleAction = case _ of
                     else state.windows
                 , sessionMenuOpen = false
                 , terminalMenuOpen = false
+                , pasteMenuOpen = false
                 , windowMenuOpen =
                     if state.attachedSession == session.id then false
                     else state.windowMenuOpen
@@ -738,6 +923,7 @@ handleAction = case _ of
           , sessionMenuOpen = false
           , windowMenuOpen = false
           , terminalMenuOpen = false
+          , pasteMenuOpen = false
           , status = "connecting: " <> label
           }
         refreshWindows sessionId
@@ -750,6 +936,7 @@ handleAction = case _ of
         { selectedSession = sessionId
         , sessionMenuOpen = false
         , terminalMenuOpen = false
+        , pasteMenuOpen = false
         }
       syncUi
     else
@@ -761,6 +948,7 @@ handleAction = case _ of
       H.modify_ _
         { windowMenuOpen = false
         , terminalMenuOpen = false
+        , pasteMenuOpen = false
         }
     else do
       base <- liftEffect $ Browser.apiBase state.server
@@ -771,12 +959,14 @@ handleAction = case _ of
             { status = "error: " <> message err
             , windowMenuOpen = false
             , terminalMenuOpen = false
+            , pasteMenuOpen = false
             }
         Right windowInfo -> do
           H.modify_ _
             { status = "window: " <> windowLabel windowInfo
             , windowMenuOpen = false
             , terminalMenuOpen = false
+            , pasteMenuOpen = false
             }
           refreshWindows state.attachedSession
       syncUi
@@ -787,6 +977,7 @@ handleAction = case _ of
       H.modify_ _
         { windowMenuOpen = false
         , terminalMenuOpen = false
+        , pasteMenuOpen = false
         }
     else do
       base <- liftEffect $ Browser.apiBase state.server
@@ -797,12 +988,14 @@ handleAction = case _ of
             { status = "error: " <> message err
             , windowMenuOpen = false
             , terminalMenuOpen = false
+            , pasteMenuOpen = false
             }
         Right _ -> do
           H.modify_ _
             { status = "window: " <> selectedWindowLabel index state.windows
             , windowMenuOpen = false
             , terminalMenuOpen = false
+            , pasteMenuOpen = false
             }
           refreshWindows state.attachedSession
       syncUi
@@ -818,6 +1011,7 @@ handleAction = case _ of
       , sessionMenuOpen = false
       , windowMenuOpen = false
       , terminalMenuOpen = false
+      , pasteMenuOpen = false
       , status = "disconnected"
       }
     syncUi
@@ -833,12 +1027,14 @@ handleAction = case _ of
           , sessionMenuOpen = false
           , windowMenuOpen = false
           , terminalMenuOpen = false
+          , pasteMenuOpen = false
           , status = "disconnected"
           }
       TerminalErrored ->
         H.modify_ _
           { status = "connection error"
           , terminalMenuOpen = false
+          , pasteMenuOpen = false
           }
       TerminalLinkOpened ->
         H.modify_ _ { status = "opened link" }
@@ -861,10 +1057,69 @@ sendTerminalAction send = do
       H.modify_ _
         { status = "terminal not ready"
         , terminalMenuOpen = false
+        , pasteMenuOpen = false
         }
     Just terminal -> do
       liftEffect $ send terminal
       H.modify_ _ { terminalMenuOpen = false }
+  syncUi
+
+savePasteSnippet
+  :: forall o
+   . H.HalogenM State Action Slots o Aff Unit
+savePasteSnippet = do
+  state <- H.get
+  if state.pasteName == "" || state.pasteBody == "" then
+    H.modify_ _ { status = "paste needs name and text" }
+  else do
+    let
+      paste = { name: state.pasteName, body: state.pasteBody }
+      pastes = upsertPaste paste state.pastes
+    liftEffect $ Browser.savePastes pasteStorageKey pastes
+    H.modify_ _
+      { pastes = pastes
+      , status = "saved paste: " <> state.pasteName
+      }
+  syncUi
+
+deletePasteSnippet
+  :: forall o
+   . String
+  -> H.HalogenM State Action Slots o Aff Unit
+deletePasteSnippet name = do
+  state <- H.get
+  let pastes = Array.filter (\paste -> paste.name /= name) state.pastes
+  liftEffect $ Browser.savePastes pasteStorageKey pastes
+  H.modify_ _
+    { pastes = pastes
+    , pasteName = if state.pasteName == name then "" else state.pasteName
+    , pasteBody = if state.pasteName == name then "" else state.pasteBody
+    , status = "deleted paste: " <> name
+    }
+  syncUi
+
+pasteTerminalText
+  :: forall o
+   . String
+  -> String
+  -> H.HalogenM State Action Slots o Aff Unit
+pasteTerminalText label body = do
+  state <- H.get
+  if body == "" then
+    H.modify_ _ { status = "nothing to paste" }
+  else
+    case state.terminal of
+      Nothing ->
+        H.modify_ _
+          { status = "terminal not ready"
+          , pasteMenuOpen = false
+          }
+      Just terminal -> do
+        liftEffect $ Terminal.sendText terminal body
+        H.modify_ _
+          { status = "pasted: " <> label
+          , pasteMenuOpen = false
+          }
   syncUi
 
 returnAttachedSessionLive
@@ -973,6 +1228,23 @@ windowLabel :: WindowInfo -> String
 windowLabel windowInfo =
   if windowInfo.name == "" then "window " <> show windowInfo.index
   else windowInfo.name
+
+pastePreview :: String -> String
+pastePreview = identity
+
+upsertPaste :: PasteSnippet -> Array PasteSnippet -> Array PasteSnippet
+upsertPaste paste pastes =
+  if Array.any (\candidate -> candidate.name == paste.name) pastes then
+    map
+      ( \candidate ->
+          if candidate.name == paste.name then paste else candidate
+      )
+      pastes
+  else
+    pastes <> [ paste ]
+
+pasteStorageKey :: String
+pasteStorageKey = "agent-daemon-paste-snippets"
 
 defaultTerminalFontSize :: Int
 defaultTerminalFontSize = 12

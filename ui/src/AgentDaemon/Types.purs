@@ -1,7 +1,13 @@
 module AgentDaemon.Types
-  ( Session
+  ( PasteSnippet
+  , Session
   , WindowInfo
   ) where
+
+type PasteSnippet =
+  { name :: String
+  , body :: String
+  }
 
 type Session =
   { id :: String
