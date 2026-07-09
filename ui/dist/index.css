@@ -318,15 +318,37 @@ button,
   gap: 7px;
 }
 
-button svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
+.icon-button,
+.icon-link {
+  width: 34px;
+  min-width: 34px;
 }
 
 .icon-button {
-  width: 34px;
   padding: 0;
+}
+
+.icon-link {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--button-border);
+  border-radius: 4px;
+  background: var(--button-bg);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.icon-link:hover {
+  background: var(--button-hover);
+}
+
+button svg,
+.icon-link svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 .setting-button {

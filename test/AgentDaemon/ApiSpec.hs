@@ -42,9 +42,15 @@ import Data.Text qualified as T
 import Data.Time (getCurrentTime)
 import Network.HTTP.Client
     ( defaultManagerSettings
+    , httpLbs
+    , method
     , newManager
+    , parseRequest
+    , requestHeaders
+    , responseHeaders
+    , responseStatus
     )
-import Network.HTTP.Types (status400, status404)
+import Network.HTTP.Types (status200, status400, status404)
 import Network.Wai.Handler.Warp qualified as Warp
 import Servant.API
     ( Capture
@@ -264,6 +270,49 @@ spec = describe "REST API" $ do
                         fail $
                             "Expected 404, got: "
                                 <> show other
+
+        it "OPTIONS /sessions/:sid/windows answers CORS preflight" $
+            \port -> do
+                manager <- newManager defaultManagerSettings
+                request <-
+                    parseRequest $
+                        "http://127.0.0.1:"
+                            <> show port
+                            <> "/sessions/demo/windows"
+                response <-
+                    httpLbs
+                        request
+                            { method = "OPTIONS"
+                            , requestHeaders =
+                                [
+                                    ( "Origin"
+                                    , "https://lambdasistemi.github.io"
+                                    )
+                                ,
+                                    ( "Access-Control-Request-Method"
+                                    , "POST"
+                                    )
+                                ,
+                                    ( "Access-Control-Request-Headers"
+                                    , "content-type"
+                                    )
+                                ]
+                            }
+                        manager
+
+                responseStatus response `shouldBe` status200
+                lookup
+                    "Access-Control-Allow-Origin"
+                    (responseHeaders response)
+                    `shouldBe` Just "*"
+                lookup
+                    "Access-Control-Allow-Methods"
+                    (responseHeaders response)
+                    `shouldBe` Just "GET, POST, DELETE, OPTIONS"
+                lookup
+                    "Access-Control-Allow-Headers"
+                    (responseHeaders response)
+                    `shouldBe` Just "Content-Type"
 
     around (\action -> withPaneTestServer action) $ do
         it "DELETE /sessions/:sid requires exact confirmation" $

@@ -1,12 +1,12 @@
-# agent-daemon
+# tmux-ws
 
-[![CI](https://github.com/lambdasistemi/agent-daemon/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdasistemi/agent-daemon/actions/workflows/ci.yml)
+[![CI](https://github.com/lambdasistemi/tmux-ws/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdasistemi/tmux-ws/actions/workflows/ci.yml)
 
 WebSocket daemon for managing local tmux sessions from a browser.
 
 ## Documentation
 
-See the [full documentation](https://lambdasistemi.github.io/agent-daemon/docs/).
+See the [full documentation](https://lambdasistemi.github.io/tmux-ws/docs/).
 
 ## Quick start
 

@@ -1,7 +1,7 @@
-site_name: Agent Daemon
-site_url: https://lambdasistemi.github.io/agent-daemon/docs
-repo_url: https://github.com/lambdasistemi/agent-daemon
-repo_name: lambdasistemi/agent-daemon
+site_name: tmux-ws
+site_url: https://lambdasistemi.github.io/tmux-ws/docs
+repo_url: https://github.com/lambdasistemi/tmux-ws
+repo_name: lambdasistemi/tmux-ws
 
 theme:
   name: material

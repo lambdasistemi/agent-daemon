@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            agent-daemon
-version:         0.1.0
+version:         0.1.1
 synopsis:        WebSocket daemon for managing Claude Code agent sessions
 description:
   A Haskell WebSocket server that manages Claude Code agent
@@ -14,8 +14,8 @@ maintainer:      paolo.veronelli@gmail.com
 copyright:       (c) 2026 Paolo Veronelli
 category:        Development
 build-type:      Simple
-homepage:        https://github.com/lambdasistemi/agent-daemon
-bug-reports:     https://github.com/lambdasistemi/agent-daemon/issues
+homepage:        https://github.com/lambdasistemi/tmux-ws
+bug-reports:     https://github.com/lambdasistemi/tmux-ws/issues
 extra-doc-files: README.md
 
 library

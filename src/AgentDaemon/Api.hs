@@ -49,6 +49,7 @@ import Network.HTTP.Types
     ( ResponseHeaders
     , methodGet
     , methodHead
+    , methodOptions
     , status200
     , status404
     )
@@ -617,13 +618,15 @@ noCacheHeaders =
     ]
 
 {- | CORS middleware — adds permissive CORS headers to
-all responses.
+all responses and answers browser preflight requests.
 -}
 cors :: Middleware
 cors app req respond =
-    app req $ \response ->
-        respond $
-            mapResponseHeaders (++ corsHeaders) response
+    if requestMethod req == methodOptions
+        then respond $ responseLBS status200 corsHeaders ""
+        else app req $ \response ->
+            respond $
+                mapResponseHeaders (++ corsHeaders) response
 
 -- | CORS headers allowing any origin.
 corsHeaders :: ResponseHeaders

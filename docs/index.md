@@ -44,6 +44,6 @@ permission to clone/fetch the repositories it will manage.
 ## Browser client
 
 A web-based terminal client is available at
-[lambdasistemi.github.io/agent-daemon](https://lambdasistemi.github.io/agent-daemon/)
+[lambdasistemi.github.io/tmux-ws](https://lambdasistemi.github.io/tmux-ws/)
 
 Enter your daemon's address in the server field to connect remotely (e.g. via Tailscale).

@@ -152,13 +152,15 @@ render state =
 renderHeader :: State -> H.ComponentHTML Action Slots Aff
 renderHeader state =
   HH.header_
-    [ HH.h1_ [ HH.text "agent-daemon" ]
+    [ HH.h1_ [ HH.text "tmux-ws" ]
     , HH.span
         [ HP.id "status" ]
         [ HH.text state.status ]
     , HH.div
         [ cls "top-actions" ]
-        [ iconOnlyButton "Refresh sessions" "refresh-cw" RefreshSessions Nothing
+        [ iconLink "Repository" "github" "https://github.com/lambdasistemi/tmux-ws"
+        , iconLink "Documentation" "book-open" "https://lambdasistemi.github.io/tmux-ws/docs/"
+        , iconOnlyButton "Refresh sessions" "refresh-cw" RefreshSessions Nothing
         , renderSessionSwitcher state
         , renderWindowSwitcher state
         , renderTerminalActions state
@@ -1509,6 +1511,18 @@ iconTextButton className label iconName action =
         [ cls "button-label" ]
         [ HH.text label ]
     ]
+
+iconLink :: String -> String -> String -> H.ComponentHTML Action Slots Aff
+iconLink label iconName href =
+  HH.a
+    [ cls "icon-link"
+    , HP.title label
+    , HP.attr (HH.AttrName "aria-label") label
+    , HP.attr (HH.AttrName "href") href
+    , HP.attr (HH.AttrName "target") "_blank"
+    , HP.attr (HH.AttrName "rel") "noopener noreferrer"
+    ]
+    [ icon iconName ]
 
 icon :: String -> H.ComponentHTML Action Slots Aff
 icon name =

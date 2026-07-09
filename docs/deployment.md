@@ -7,7 +7,7 @@ The flake exposes a NixOS module:
 ```nix
 # flake.nix
 {
-  inputs.agent-daemon.url = "github:lambdasistemi/agent-daemon";
+  inputs.agent-daemon.url = "github:lambdasistemi/tmux-ws";
 
   outputs = { nixpkgs, agent-daemon, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
