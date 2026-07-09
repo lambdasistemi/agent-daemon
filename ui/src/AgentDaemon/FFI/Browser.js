@@ -24,6 +24,35 @@ export const saveItem = (key) => (value) => () => {
   else window.localStorage.removeItem(key);
 };
 
+const normalizePaste = (paste) => ({
+  name: typeof paste?.name === "string" ? paste.name : "",
+  body: typeof paste?.body === "string" ? paste.body : ""
+});
+
+export const loadPastes = (key) => () => {
+  try {
+    const value = window.localStorage.getItem(key);
+    const parsed = value ? JSON.parse(value) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(normalizePaste)
+      .filter((paste) => paste.name && paste.body);
+  } catch (_) {
+    return [];
+  }
+};
+
+export const savePastes = (key) => (pastes) => () => {
+  const normalized = Array.isArray(pastes)
+    ? pastes.map(normalizePaste).filter((paste) => paste.name && paste.body)
+    : [];
+  if (normalized.length === 0) {
+    window.localStorage.removeItem(key);
+  } else {
+    window.localStorage.setItem(key, JSON.stringify(normalized));
+  }
+};
+
 export const apiBase = (server) => () => apiBaseFrom(server);
 
 export const sessionTerminalWsUrl = (server) => (sessionId) => () =>

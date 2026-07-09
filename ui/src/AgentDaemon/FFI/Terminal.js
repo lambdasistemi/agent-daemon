@@ -76,6 +76,9 @@ const sendTerminalData = (controller, data) => {
   }
 };
 
+const normalizePasteData = (value) =>
+  String(value).replace(/\r\n/g, "\n").replace(/\n/g, "\r");
+
 const hasMeasurableSize = (element) =>
   element &&
   element.isConnected &&
@@ -353,6 +356,10 @@ export const sendCtrlB = (controller) => () => {
 
 export const sendCtrlBCommand = (controller) => () => {
   sendTerminalData(controller, "\x02:");
+};
+
+export const sendText = (controller) => (text) => () => {
+  sendTerminalData(controller, normalizePasteData(text));
 };
 
 export const setTerminalTheme = (controller) => (theme) => () => {

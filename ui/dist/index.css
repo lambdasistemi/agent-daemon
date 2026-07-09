@@ -121,7 +121,8 @@ h1 {
 }
 
 .settings-shell,
-.terminal-actions-shell {
+.terminal-actions-shell,
+.paste-actions-shell {
   position: relative;
 }
 
@@ -162,7 +163,8 @@ h1 {
 
 .session-menu,
 .window-menu,
-.terminal-menu {
+.terminal-menu,
+.paste-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -187,6 +189,12 @@ h1 {
   z-index: 29;
   width: min(220px, calc(100vw - 16px));
   max-height: min(70vh, 280px);
+}
+
+.paste-menu {
+  z-index: 29;
+  width: min(460px, calc(100vw - 16px));
+  max-height: min(78vh, 640px);
 }
 
 .settings-menu {
@@ -257,6 +265,7 @@ main {
 }
 
 input,
+textarea,
 button {
   min-height: 34px;
   border-radius: 4px;
@@ -264,7 +273,8 @@ button {
   font-size: 13px;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--border-strong);
@@ -273,7 +283,12 @@ input {
   padding: 7px 9px;
 }
 
-input::placeholder {
+textarea {
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
   color: var(--placeholder);
 }
 
@@ -313,7 +328,8 @@ button svg {
 .session-menu-item,
 .window-menu-item,
 .window-menu-action,
-.terminal-menu-item {
+.terminal-menu-item,
+.paste-snippet-button {
   width: 100%;
   justify-content: flex-start;
   min-height: 38px;
@@ -331,6 +347,63 @@ button svg {
   min-width: 0;
   display: grid;
   gap: 3px;
+}
+
+.paste-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.paste-snippet-button {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.paste-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+
+.paste-preview {
+  min-width: 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paste-icon-button {
+  width: 34px;
+  padding: 0;
+}
+
+.paste-editor {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.paste-textarea {
+  height: 112px;
+  max-height: 38vh;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.35;
+}
+
+.paste-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .session-meta {
@@ -359,7 +432,8 @@ button svg {
 }
 
 .session-menu-empty,
-.window-menu-empty {
+.window-menu-empty,
+.paste-menu-empty {
   color: var(--text-muted);
   font-size: 12px;
   padding: 7px 9px;
@@ -566,5 +640,18 @@ button:disabled {
     right: 8px;
     width: min(220px, calc(100vw - 16px));
     max-height: calc(100vh - 68px);
+  }
+
+  .paste-menu {
+    position: fixed;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100vh - 68px);
+  }
+
+  .paste-editor-actions {
+    flex-wrap: wrap;
   }
 }
