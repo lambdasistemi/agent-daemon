@@ -26,7 +26,8 @@ export const saveItem = (key) => (value) => () => {
 
 const normalizePaste = (paste) => ({
   name: typeof paste?.name === "string" ? paste.name : "",
-  body: typeof paste?.body === "string" ? paste.body : ""
+  body: typeof paste?.body === "string" ? paste.body : "",
+  enter: Boolean(paste?.enter)
 });
 
 export const loadPastes = (key) => () => {

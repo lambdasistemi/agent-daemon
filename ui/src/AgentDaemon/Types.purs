@@ -7,6 +7,7 @@ module AgentDaemon.Types
 type PasteSnippet =
   { name :: String
   , body :: String
+  , enter :: Boolean
   }
 
 type Session =

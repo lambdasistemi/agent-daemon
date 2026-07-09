@@ -379,6 +379,15 @@ button svg {
   white-space: nowrap;
 }
 
+.paste-badge {
+  width: fit-content;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--pill-text);
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
 .paste-icon-button {
   width: 34px;
   padding: 0;
@@ -397,6 +406,18 @@ button svg {
   max-height: 38vh;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.35;
+}
+
+.paste-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.paste-option-button.active {
+  border-color: var(--active-border);
+  background: var(--surface-active);
 }
 
 .paste-editor-actions {
@@ -651,6 +672,7 @@ button:disabled {
     max-height: calc(100vh - 68px);
   }
 
+  .paste-options,
   .paste-editor-actions {
     flex-wrap: wrap;
   }
