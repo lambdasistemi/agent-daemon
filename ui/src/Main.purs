@@ -146,31 +146,76 @@ render state =
     [ cls "app-shell" ]
     [ renderHeader state
     , renderMain state
+    , renderActionDock state
     , renderConfirm state
     ]
 
 renderHeader :: State -> H.ComponentHTML Action Slots Aff
 renderHeader state =
-  HH.header_
-    [ HH.h1_ [ HH.text "tmux-ws" ]
-    , HH.span
-        [ HP.id "status" ]
-        [ HH.text state.status ]
-    , HH.div
-        [ cls "top-actions" ]
-        [ iconLink "Repository" "github" "https://github.com/lambdasistemi/tmux-ws"
-        , iconLink "Documentation" "book-open" "https://lambdasistemi.github.io/tmux-ws/docs/"
-        , iconOnlyButton "Refresh sessions" "refresh-cw" RefreshSessions Nothing
-        , renderSessionSwitcher state
-        , renderWindowSwitcher state
-        , renderTerminalActions state
-        , renderPasteActions state
-        , HH.div
-            [ cls "settings-shell" ]
-            [ iconOnlyButton "Settings" "settings" ToggleSettings
-                (Just (if state.settingsOpen then "true" else "false"))
-            , renderSettings state
+  HH.header
+    [ cls "app-header" ]
+    [ HH.div
+        [ cls "identity-bar" ]
+        [ HH.h1_ [ HH.text "tmux-ws" ]
+        , HH.span
+            [ HP.id "status"
+            , cls
+                ( "connection-badge "
+                    <> if state.attachedSession == "" then "offline" else "online"
+                )
             ]
+            [ HH.span
+                [ cls "connection-dot" ]
+                []
+            , HH.span
+                [ cls "status-label" ]
+                [ HH.text state.status ]
+            ]
+        ]
+    , HH.div
+        [ cls "context-bar" ]
+        [ renderSessionSwitcher state
+        , renderWindowSwitcher state
+        ]
+    , HH.nav
+        [ cls "utility-links"
+        , HP.attr (HH.AttrName "aria-label") "Project links"
+        ]
+        [ iconTextLink "Repository" "github" "https://github.com/lambdasistemi/tmux-ws"
+        , iconTextLink "Documentation" "book-open" "https://lambdasistemi.github.io/tmux-ws/docs/"
+        ]
+    ]
+
+renderActionDock :: State -> H.ComponentHTML Action Slots Aff
+renderActionDock state =
+  HH.footer
+    [ cls "action-dock"
+    , HP.attr (HH.AttrName "aria-label") "Workspace actions"
+    ]
+    [ dockButton "Refresh" "refresh-cw" RefreshSessions Nothing false false
+    , HH.div
+        [ cls "terminal-actions-shell" ]
+        [ dockButton "Terminal" "keyboard" ToggleTerminalMenu
+            (Just (if state.terminalMenuOpen then "true" else "false"))
+            (state.terminalMenuOpen || state.terminalSelectionMode)
+            (state.attachedSession == "")
+        , renderTerminalMenu state
+        ]
+    , HH.div
+        [ cls "paste-actions-shell" ]
+        [ dockButton "Paste" "clipboard-list" TogglePasteMenu
+            (Just (if state.pasteMenuOpen then "true" else "false"))
+            state.pasteMenuOpen
+            (state.attachedSession == "")
+        , renderPasteMenu state
+        ]
+    , HH.div
+        [ cls "settings-shell" ]
+        [ dockButton "Settings" "settings" ToggleSettings
+            (Just (if state.settingsOpen then "true" else "false"))
+            state.settingsOpen
+            false
+        , renderSettings state
         ]
     ]
 
@@ -240,35 +285,37 @@ renderSessionItem state session =
 
 renderWindowSwitcher :: State -> H.ComponentHTML Action Slots Aff
 renderWindowSwitcher state =
-  if state.attachedSession == "" then
-    HH.text ""
-  else
-    HH.div
-      [ cls "window-switcher" ]
-      [ HH.button
-          [ cls "window-button"
-          , HP.title "Switch tmux window"
-          , HP.attr (HH.AttrName "aria-label") "Switch tmux window"
-          , HP.attr (HH.AttrName "aria-expanded")
-              (if state.windowMenuOpen then "true" else "false")
-          , HE.onClick \_ -> ToggleWindowMenu
-          ]
-          [ HH.span
-              [ cls "menu-prefix" ]
-              [ HH.text "Window" ]
-          , HH.span
-              [ cls "button-label window-label" ]
-              [ HH.text (activeWindowLabel state) ]
-          , icon "chevron-down"
-          ]
-      , HH.div
-          [ cls
-              ( "window-menu"
-                  <> if state.windowMenuOpen then "" else " hidden"
-              )
-          ]
-          (renderWindowItems state.windows)
-      ]
+  HH.div
+    [ cls "window-switcher" ]
+    [ HH.button
+        [ cls "window-button"
+        , HP.title "Switch tmux window"
+        , HP.attr (HH.AttrName "aria-label") "Switch tmux window"
+        , HP.attr (HH.AttrName "aria-expanded")
+            (if state.windowMenuOpen then "true" else "false")
+        , HP.disabled (state.attachedSession == "")
+        , HE.onClick \_ -> ToggleWindowMenu
+        ]
+        [ HH.span
+            [ cls "menu-prefix" ]
+            [ HH.text "Window" ]
+        , HH.span
+            [ cls "button-label window-label" ]
+            [ HH.text
+                ( if state.attachedSession == "" then "No window"
+                  else activeWindowLabel state
+                )
+            ]
+        , icon "chevron-down"
+        ]
+    , HH.div
+        [ cls
+            ( "window-menu"
+                <> if state.windowMenuOpen then "" else " hidden"
+            )
+        ]
+        (renderWindowItems state.windows)
+    ]
 
 renderWindowItems
   :: Array WindowInfo
@@ -293,88 +340,78 @@ renderWindowItems windows =
       else
         map renderWindowItem windows
 
-renderTerminalActions :: State -> H.ComponentHTML Action Slots Aff
-renderTerminalActions state =
+renderTerminalMenu :: State -> H.ComponentHTML Action Slots Aff
+renderTerminalMenu state =
   if state.attachedSession == "" then
     HH.text ""
   else
     HH.div
-      [ cls "terminal-actions-shell" ]
-      [ iconOnlyButton "Terminal controls" "keyboard" ToggleTerminalMenu
-          (Just (if state.terminalMenuOpen then "true" else "false"))
-      , HH.div
-          [ cls
-              ( "terminal-menu"
-                  <> if state.terminalMenuOpen then "" else " hidden"
-              )
+      [ cls
+          ( "terminal-menu"
+              <> if state.terminalMenuOpen then "" else " hidden"
+          )
+      ]
+      [ HH.button
+          [ cls "terminal-menu-item"
+          , HE.onClick \_ -> CopyTerminalText
           ]
-          [ HH.button
-              [ cls "terminal-menu-item"
-              , HE.onClick \_ -> CopyTerminalText
-              ]
-              [ icon "copy"
-              , HH.text "Copy"
-              ]
-          , HH.button
-              [ cls
-                  ( "terminal-menu-item"
-                      <> if state.terminalSelectionMode then " active" else ""
-                  )
-              , HP.attr (HH.AttrName "aria-pressed")
-                  (if state.terminalSelectionMode then "true" else "false")
-              , HE.onClick \_ -> ToggleTerminalSelectionMode
-              ]
-              [ icon "scan-text"
-              , HH.text "Select"
-              ]
-          , HH.button
-              [ cls "terminal-menu-item"
-              , HE.onClick \_ -> SendEscape
-              ]
-              [ HH.text "Esc" ]
-          , HH.button
-              [ cls "terminal-menu-item"
-              , HE.onClick \_ -> SendCtrlB
-              ]
-              [ HH.text "Ctrl-b" ]
-          , HH.button
-              [ cls "terminal-menu-item"
-              , HE.onClick \_ -> SendCtrlBCommand
-              ]
-              [ HH.text "Ctrl-b :" ]
-          , HH.button
-              [ cls "terminal-menu-item"
-              , HE.onClick \_ -> SendLive
-              ]
-              [ icon "radio"
-              , HH.text "Live"
-              ]
+          [ icon "copy"
+          , HH.text "Copy"
+          ]
+      , HH.button
+          [ cls
+              ( "terminal-menu-item"
+                  <> if state.terminalSelectionMode then " active" else ""
+              )
+          , HP.attr (HH.AttrName "aria-pressed")
+              (if state.terminalSelectionMode then "true" else "false")
+          , HE.onClick \_ -> ToggleTerminalSelectionMode
+          ]
+          [ icon "scan-text"
+          , HH.text "Select"
+          ]
+      , HH.button
+          [ cls "terminal-menu-item"
+          , HE.onClick \_ -> SendEscape
+          ]
+          [ HH.text "Esc" ]
+      , HH.button
+          [ cls "terminal-menu-item"
+          , HE.onClick \_ -> SendCtrlB
+          ]
+          [ HH.text "Ctrl-b" ]
+      , HH.button
+          [ cls "terminal-menu-item"
+          , HE.onClick \_ -> SendCtrlBCommand
+          ]
+          [ HH.text "Ctrl-b :" ]
+      , HH.button
+          [ cls "terminal-menu-item"
+          , HE.onClick \_ -> SendLive
+          ]
+          [ icon "radio"
+          , HH.text "Live"
           ]
       ]
 
-renderPasteActions :: State -> H.ComponentHTML Action Slots Aff
-renderPasteActions state =
+renderPasteMenu :: State -> H.ComponentHTML Action Slots Aff
+renderPasteMenu state =
   if state.attachedSession == "" then
     HH.text ""
   else
     HH.div
-      [ cls "paste-actions-shell" ]
-      [ iconOnlyButton "Paste snippets" "clipboard-list" TogglePasteMenu
-          (Just (if state.pasteMenuOpen then "true" else "false"))
-      , HH.div
-          [ cls
-              ( "paste-menu"
-                  <> if state.pasteMenuOpen then "" else " hidden"
-              )
-          ]
-          ( renderPasteItems state
-              <>
-                if state.pasteEditorOpen then
-                  [ renderPasteEditor state ]
-                else
-                  [ renderPasteNewButton ]
+      [ cls
+          ( "paste-menu"
+              <> if state.pasteMenuOpen then "" else " hidden"
           )
       ]
+      ( renderPasteItems state
+          <>
+            if state.pasteEditorOpen then
+              [ renderPasteEditor state ]
+            else
+              [ renderPasteNewButton ]
+      )
 
 renderPasteItems
   :: State
@@ -1512,6 +1549,31 @@ iconTextButton className label iconName action =
         [ HH.text label ]
     ]
 
+dockButton
+  :: String
+  -> String
+  -> Action
+  -> Maybe String
+  -> Boolean
+  -> Boolean
+  -> H.ComponentHTML Action Slots Aff
+dockButton label iconName action expanded active disabled =
+  HH.button
+    ( [ cls ("dock-button" <> if active then " active" else "")
+      , HP.title label
+      , HP.disabled disabled
+      , HE.onClick \_ -> action
+      ]
+        <> case expanded of
+          Nothing -> []
+          Just value -> [ HP.attr (HH.AttrName "aria-expanded") value ]
+    )
+    [ icon iconName
+    , HH.span
+        [ cls "dock-label" ]
+        [ HH.text label ]
+    ]
+
 iconLink :: String -> String -> String -> H.ComponentHTML Action Slots Aff
 iconLink label iconName href =
   HH.a
@@ -1523,6 +1585,22 @@ iconLink label iconName href =
     , HP.attr (HH.AttrName "rel") "noopener noreferrer"
     ]
     [ icon iconName ]
+
+iconTextLink :: String -> String -> String -> H.ComponentHTML Action Slots Aff
+iconTextLink label iconName href =
+  HH.a
+    [ cls "utility-link"
+    , HP.title label
+    , HP.attr (HH.AttrName "aria-label") label
+    , HP.attr (HH.AttrName "href") href
+    , HP.attr (HH.AttrName "target") "_blank"
+    , HP.attr (HH.AttrName "rel") "noopener noreferrer"
+    ]
+    [ icon iconName
+    , HH.span
+        [ cls "utility-label" ]
+        [ HH.text label ]
+    ]
 
 icon :: String -> H.ComponentHTML Action Slots Aff
 icon name =

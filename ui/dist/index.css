@@ -715,3 +715,453 @@ button:disabled {
     flex-wrap: wrap;
   }
 }
+
+/* Touch-first workspace shell */
+
+:root {
+  --focus-ring: #57b7d5;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+.app-shell {
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.app-header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(320px, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  padding: calc(8px + var(--safe-top)) calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left));
+}
+
+.identity-bar,
+.context-bar,
+.utility-links {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.identity-bar {
+  gap: 9px;
+}
+
+.context-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.utility-links {
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.utility-link {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.utility-link:hover {
+  border-color: var(--button-border);
+  background: var(--surface-subtle);
+  color: var(--text-strong);
+}
+
+.utility-link svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.connection-badge {
+  min-width: 0;
+  max-width: min(260px, 28vw);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  padding: 4px 8px;
+}
+
+.connection-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #77808f;
+}
+
+.connection-badge.online .connection-dot {
+  background: #58c88a;
+  box-shadow: 0 0 0 3px rgba(88, 200, 138, 0.12);
+}
+
+.status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-switcher,
+.window-switcher {
+  width: 100%;
+}
+
+.session-button,
+.window-button {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-content: stretch;
+  gap: 8px;
+  text-align: left;
+}
+
+.session-button .button-label,
+.window-button .button-label {
+  justify-content: flex-start;
+}
+
+.session-button:disabled,
+.window-button:disabled {
+  background: var(--surface-subtle);
+}
+
+.action-dock {
+  z-index: 18;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(88px, 124px));
+  justify-content: center;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 8px calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.action-dock > div {
+  min-width: 0;
+  position: relative;
+}
+
+.dock-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+}
+
+.dock-button.active,
+.dock-button[aria-expanded="true"] {
+  border-color: var(--active-border);
+  background: var(--surface-active);
+}
+
+.dock-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-menu,
+.paste-menu,
+.settings-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.terminal-menu {
+  left: 50%;
+  right: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  transform: translateX(-50%);
+}
+
+.terminal-menu-item {
+  justify-content: center;
+}
+
+.paste-menu,
+.settings-menu {
+  right: 0;
+}
+
+.settings-menu {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+
+.session-menu,
+.window-menu,
+.terminal-menu,
+.paste-menu,
+.settings-menu {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button:active:not(:disabled),
+.utility-link:active {
+  transform: translateY(1px);
+  filter: brightness(1.08);
+}
+
+.modal-backdrop {
+  padding: calc(18px + var(--safe-top)) calc(18px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(18px + var(--safe-left));
+}
+
+@media (max-width: 1080px) {
+  .app-header {
+    grid-template-columns: auto minmax(280px, 1fr);
+  }
+
+  .utility-links {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    margin-top: -4px;
+  }
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  input,
+  textarea,
+  button {
+    min-height: 44px;
+  }
+
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    padding: calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) 8px calc(8px + var(--safe-left));
+  }
+
+  .identity-bar {
+    overflow: hidden;
+  }
+
+  .connection-badge {
+    max-width: min(52vw, 300px);
+  }
+
+  .context-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .utility-links {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .utility-link {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .utility-label {
+    display: none;
+  }
+
+  .session-button,
+  .window-button {
+    min-height: 48px;
+  }
+
+  .action-dock {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px calc(6px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(6px + var(--safe-left));
+  }
+
+  .dock-button {
+    min-height: 52px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 6px 3px;
+  }
+
+  .dock-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .session-menu,
+  .window-menu,
+  .terminal-menu,
+  .paste-menu,
+  .settings-menu {
+    position: fixed;
+    top: auto;
+    right: calc(8px + var(--safe-right));
+    bottom: calc(70px + var(--safe-bottom));
+    left: calc(8px + var(--safe-left));
+    width: auto;
+    max-height: calc(100vh - 170px - var(--safe-top) - var(--safe-bottom));
+    max-height: calc(100dvh - 170px - var(--safe-top) - var(--safe-bottom));
+    border-radius: 14px;
+    padding: 10px;
+    transform: none;
+  }
+
+  .terminal-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-menu-item,
+  .window-menu-item,
+  .window-menu-action,
+  .terminal-menu-item,
+  .paste-snippet-button,
+  .paste-new-button,
+  .paste-icon-button,
+  .paste-option-button,
+  .paste-editor-actions button,
+  .setting-button,
+  .settings-row button,
+  .icon-button,
+  .icon-link {
+    min-height: 44px;
+  }
+
+  .icon-button,
+  .icon-link,
+  .paste-icon-button {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .paste-menu-row {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+  }
+
+  .paste-options,
+  .paste-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paste-editor-actions button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .settings-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .grow {
+    min-width: 0;
+  }
+
+  .font-size-control .icon-button {
+    flex: 0 0 44px;
+  }
+
+  .modal {
+    max-height: calc(100dvh - 36px - var(--safe-top) - var(--safe-bottom));
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-header {
+    gap: 7px 8px;
+  }
+
+  .identity-bar {
+    gap: 7px;
+  }
+
+  .identity-bar h1 {
+    font-size: 13px;
+  }
+
+  .connection-badge {
+    max-width: calc(100vw - 190px - var(--safe-left) - var(--safe-right));
+    font-size: 11px;
+  }
+
+  .context-bar {
+    gap: 6px;
+  }
+
+  .session-button,
+  .window-button {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 6px 8px;
+  }
+
+  .menu-prefix {
+    display: none;
+  }
+
+  .terminal-wrap {
+    padding: 2px;
+  }
+
+  .session-menu-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .session-state {
+    justify-self: start;
+  }
+}
+
+@media (hover: none) {
+  button:hover,
+  .icon-link:hover,
+  .utility-link:hover {
+    background: var(--button-bg);
+  }
+
+  .dock-button.active,
+  .dock-button[aria-expanded="true"],
+  .session-menu-item.active,
+  .window-menu-item.active,
+  .terminal-menu-item.active {
+    background: var(--surface-active);
+  }
+}
