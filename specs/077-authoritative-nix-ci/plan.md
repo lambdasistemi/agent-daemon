@@ -70,6 +70,8 @@ Ruleset mutation is deferred until GitHub reports the exact final job names on p
 - **Slice 1 GREEN**: Restore the Cabal file, complete all seven check/app surfaces and warning policy, then run the focused check, `cabal check`, all 55 tests, actionlint, and `./gate.sh` successfully.
 - **Slice 2 RED**: Extend the workflow-lint surface with structural assertions for the nine job names, prescribed runners, dependency on Build Gate, and focused commands; run it against the old CI workflow and observe failure.
 - **Slice 2 GREEN**: Replace the CI orchestration, rerun the workflow-lint surface and full `./gate.sh`, then commit only after navigator approval.
+- **Slice 2a hosted RED**: Preserve the first hosted run's logs showing a clean runner with no Hackage index and six tmux-backed failures after the inherited server disappears. Reproduce the Cabal failure with fresh user state; do not change test semantics or job names.
+- **Slice 2a GREEN**: Make the haskell.nix shell use exact Nix-provided dependencies and give the test app a private tmux socket root plus a packaged interactive shell. Re-run the fresh-state Cabal build, all 55 tests, workflow contract, and full gate before navigator approval.
 
 ## Bisect-Safe Slice Plan
 
@@ -85,11 +87,17 @@ Deliver real checks/apps, the manual development-warning flag, lowercase local g
 
 Add the failing structural workflow contract, then make the workflow satisfy it with the Build Gate and eight stable dependent jobs. Commit subject: `ci: align GitHub Actions with flake checks`.
 
+### Slice 2a — Hosted runner isolation correction
+
+**Owned files**: `nix/project.nix`, `nix/checks.nix`.
+
+Use hosted RED evidence to remove mutable host dependencies without changing the nine-job workflow: exact haskell.nix shell dependencies make a clean Cabal invocation deterministic, while a private tmux socket root and known shell isolate the existing 55-example test app. Commit subject: `fix(ci): isolate hosted runner verification`.
+
 ### Slice 3 — Orchestrator-owned finalization
 
 **Owned surfaces**: pull request #81 metadata/checks, `specs/077-authoritative-nix-ci/tasks.md`, ruleset `13867328`, temporary `gate.sh`.
 
-The ticket owner independently reruns the full local gate, verifies all PR contexts and conclusions, updates the ruleset without changing bypass actor `5`, completes task accounting and PR body evidence (including parent epic #80), runs the finalization audit, drops `gate.sh`, pushes, and marks the PR ready. No worker modifies GitHub metadata or pushes.
+The ticket owner independently reruns the full local gate, verifies all PR contexts and conclusions after the hosted correction, updates the ruleset without changing bypass actor `5`, completes task accounting and PR body evidence (including parent epic #80), runs the finalization audit, drops `gate.sh`, pushes, and marks the PR ready. No worker modifies GitHub metadata or pushes.
 
 ## Project Structure
 

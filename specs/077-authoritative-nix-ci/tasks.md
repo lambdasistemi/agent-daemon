@@ -49,6 +49,27 @@
 
 ---
 
+## Slice 2a: Hosted Runner Isolation Correction
+
+**Goal**: Preserve the exact CI orchestration while removing the two host-state leaks exposed by the first hosted run: Cabal's empty user package index and tmux's inherited runner socket/shell state.
+
+**Independent Test**: With fresh XDG/Cabal state, `nix develop --quiet -c cabal build all -O0` succeeds from Nix-provided exact dependencies; the Haskell app uses a private tmux socket root and known interactive shell and reports 55 examples with 0 failures; the focused workflow contract and full gate remain green.
+
+**Owned files**: `nix/project.nix`, `nix/checks.nix`, ignored `WIP.md`.
+
+**Forbidden scope**: Application, test, or UI source; workflow job names/commands/runners; Cabal metadata; other Nix files; other workflows; specs, `gate.sh`, PR metadata, and ruleset state.
+
+- [ ] T011 [US1] Record the hosted RED evidence from PR #81: six tmux-backed examples fail after the inherited tmux server disappears, and a clean runner cannot resolve `servant-server` without a user Hackage index.
+- [ ] T012 [US1] Configure the haskell.nix development shell with exact Nix-provided dependencies so the required Cabal build does not depend on mutable user package-index state.
+- [ ] T013 [US1] Run the Haskell test app with a fresh private `TMUX_TMPDIR` and an explicit packaged interactive shell so concurrent/headless runners cannot share or immediately lose its tmux server.
+- [ ] T014 [US1] Record fresh-state Cabal build success, 55 examples with 0 failures, focused workflow-contract success, full `./gate.sh` exit `0`, and navigator verification before commit.
+
+**Commit**: `fix(ci): isolate hosted runner verification`
+
+**Trailer**: `Tasks: T011, T012, T013, T014`
+
+---
+
 ## Slice 3: Ticket-Orchestrator Finalization
 
 **Goal**: Independently prove local and hosted results, bind the observed contexts into the main ruleset, and complete ticket metadata before the standard gate-drop lifecycle.
@@ -57,13 +78,13 @@
 
 **Owner**: Ticket orchestrator; do not dispatch these metadata/external-state tasks to an implementation pair.
 
-- [ ] T011 [US2] Rerun `./gate.sh`, inspect pull request #81 check conclusions, and record exact local/hosted evidence in the pull request body and `specs/077-authoritative-nix-ci/tasks.md`.
-- [ ] T012 [US3] Replace ruleset `13867328` required contexts with the nine observed PR job names while preserving bypass actor `5`, then verify the returned ruleset JSON.
-- [ ] T013 [US3] Update pull request #81 body to link parent epic #80, enumerate delivered local/GitHub surfaces, and complete final task accounting in `specs/077-authoritative-nix-ci/tasks.md`.
+- [ ] T015 [US2] Rerun `./gate.sh`, inspect pull request #81 check conclusions, and record exact local/hosted evidence in the pull request body and `specs/077-authoritative-nix-ci/tasks.md`.
+- [ ] T016 [US3] Replace ruleset `13867328` required contexts with the nine observed PR job names while preserving bypass actor `5`, then verify the returned ruleset JSON.
+- [ ] T017 [US3] Update pull request #81 body to link parent epic #80, enumerate delivered local/GitHub surfaces, and complete final task accounting in `specs/077-authoritative-nix-ci/tasks.md`.
 
 **Commit**: `chore: finalize issue 77 quality contract`
 
-**Trailer**: `Tasks: T011, T012, T013`
+**Trailer**: `Tasks: T015, T016, T017`
 
 After all tasks are checked, run the finalization audit, drop `gate.sh` in the lifecycle sentinel commit, push, wait for all checks to return green at the drop commit, and only then mark pull request #81 ready. Do not merge.
 
@@ -71,9 +92,10 @@ After all tasks are checked, run the finalization audit, drop `gate.sh` in the l
 
 1. Slice 1 is the serial foundation; it makes the local gate executable.
 2. Slice 2 depends on Slice 1's flake app names and workflow-lint surface.
-3. Slice 3 depends on Slice 2 being pushed and GitHub reporting the final job names.
-4. Ruleset mutation follows observed green jobs, never speculative names.
-5. Gate drop and mark-ready follow completed task accounting and the finalization audit.
+3. Slice 2a is a forward correction driven by hosted RED evidence and depends on Slice 2's exact orchestration remaining unchanged.
+4. Slice 3 depends on Slice 2a being pushed and GitHub reporting the final job names green.
+5. Ruleset mutation follows observed green jobs, never speculative names.
+6. Gate drop and mark-ready follow completed task accounting and the finalization audit.
 
 ## Parallel Opportunities
 
