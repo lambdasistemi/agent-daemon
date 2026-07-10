@@ -1,8 +1,8 @@
 # Feature Specification: Authoritative Nix and CI Quality Contract
 
-**Feature Branch**: `ci/make-nix-checks-and-ci-authoritative`  
-**Created**: 2026-07-10  
-**Status**: Draft  
+**Feature Branch**: `ci/make-nix-checks-and-ci-authoritative`
+**Created**: 2026-07-10
+**Status**: Draft
 **Input**: GitHub issue #77, child of epic #80
 
 ## Clarifications

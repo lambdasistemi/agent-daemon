@@ -9,14 +9,14 @@ Refactor the flake so each verification surface has one strict-path executable u
 
 ## Technical Context
 
-**Language/Version**: Nix; Cabal 3.0 metadata; Haskell on existing GHC 9.8.4; PureScript registry 72.1.0; GitHub Actions YAML  
-**Primary Dependencies**: haskell.nix, `writeShellApplication`, `runCommand`, `mkSpagoDerivation`, actionlint, shellcheck, `just`, Cachix  
-**Storage**: N/A; repository files, Nix store outputs, and GitHub ruleset metadata only  
-**Testing**: Nix sandbox checks/apps, Cabal build/check/test, fourmolu, cabal-fmt, HLint, purs-tidy, Spago, esbuild, actionlint/shellcheck, guarded PR check snapshots  
-**Target Platform**: Linux `x86_64-linux` on self-hosted `nixos`; retained `aarch64-darwin` build on macOS 14  
-**Project Type**: Haskell daemon with a bundled PureScript SPA and Nix-first CI  
-**Performance Goals**: One cache-warming Build Gate realizes shared closures before downstream Linux jobs; no new application runtime work  
-**Constraints**: No application/test-semantics/GHC/release/docs behavior change; real sandbox execution; stable always-present job names; preserve ruleset bypass actor `5`  
+**Language/Version**: Nix; Cabal 3.0 metadata; Haskell on existing GHC 9.8.4; PureScript registry 72.1.0; GitHub Actions YAML
+**Primary Dependencies**: haskell.nix, `writeShellApplication`, `runCommand`, `mkSpagoDerivation`, actionlint, shellcheck, `just`, Cachix
+**Storage**: N/A; repository files, Nix store outputs, and GitHub ruleset metadata only
+**Testing**: Nix sandbox checks/apps, Cabal build/check/test, fourmolu, cabal-fmt, HLint, purs-tidy, Spago, esbuild, actionlint/shellcheck, guarded PR check snapshots
+**Target Platform**: Linux `x86_64-linux` on self-hosted `nixos`; retained `aarch64-darwin` build on macOS 14
+**Project Type**: Haskell daemon with a bundled PureScript SPA and Nix-first CI
+**Performance Goals**: One cache-warming Build Gate realizes shared closures before downstream Linux jobs; no new application runtime work
+**Constraints**: No application/test-semantics/GHC/release/docs behavior change; real sandbox execution; stable always-present job names; preserve ruleset bypass actor `5`
 **Scale/Scope**: Seven focused flake check/app surfaces, nine PR job contexts, one ruleset update
 
 ## Constitution Check
