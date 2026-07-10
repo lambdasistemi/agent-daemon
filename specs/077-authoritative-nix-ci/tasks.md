@@ -78,9 +78,16 @@
 
 **Owner**: Ticket orchestrator; do not dispatch these metadata/external-state tasks to an implementation pair.
 
-- [ ] T015 [US2] Rerun `./gate.sh`, inspect pull request #81 check conclusions, and record exact local/hosted evidence in the pull request body and `specs/077-authoritative-nix-ci/tasks.md`.
-- [ ] T016 [US3] Replace ruleset `13867328` required contexts with the nine observed PR job names while preserving bypass actor `5`, then verify the returned ruleset JSON.
-- [ ] T017 [US3] Update pull request #81 body to link parent epic #80, enumerate delivered local/GitHub surfaces, and complete final task accounting in `specs/077-authoritative-nix-ci/tasks.md`.
+- [X] T015 [US2] Rerun `./gate.sh`, inspect pull request #81 check conclusions, and record exact local/hosted evidence in the pull request body and `specs/077-authoritative-nix-ci/tasks.md`.
+- [X] T016 [US3] Replace ruleset `13867328` required contexts with the nine observed PR job names while preserving bypass actor `5`, then verify the returned ruleset JSON.
+- [X] T017 [US3] Update pull request #81 body to link parent epic #80, enumerate delivered local/GitHub surfaces, and complete final task accounting in `specs/077-authoritative-nix-ci/tasks.md`.
+
+**Final evidence**:
+
+- Local `./gate.sh` exited `0` after the hosted run completed, evaluating all seven flake checks and completing the required dev-shell build.
+- Hosted run `29095995236` at head `306cb26e2d8c142cc0c39184cdebc46ee704ccc4` completed exactly nine successful jobs: `Build Gate`, `Haskell build and tests`, `Formatting`, `HLint`, `Cabal package validation`, `PureScript UI`, `Workflow lint`, `Dev shell build`, and `Darwin build`.
+- Fresh ruleset `13867328` JSON verification reported the exact ordered nine-context list and preserved the sole bypass actor `{actor_id: 5, actor_type: RepositoryRole, bypass_mode: always}`, the `main` ref condition, and the existing pull-request/non-fast-forward rules.
+- Pull request #81 remains draft during finalization; its delivered-state body starts with `Closes #77`, links parent epic #80, enumerates the delivered local/hosted surfaces, and records the hosted run and ruleset evidence.
 
 **Commit**: `chore: finalize issue 77 quality contract`
 
