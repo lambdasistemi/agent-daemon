@@ -15,12 +15,12 @@
 
 **Forbidden scope**: Application, test, or UI source; `.github/workflows/ci.yml`; Pages/release behavior; GHC/input upgrades; specs, `gate.sh`, PR metadata, and ruleset state.
 
-- [ ] T001 [US1] Move `-Werror` behind manual default-off `development-warnings` in `agent-daemon.cabal`, enable it explicitly in `nix/project.nix`, and edit `cabal.project` only if fresh validation exposes a concrete warning.
-- [ ] T002 [US1] Create strict-path app specifications and real sandboxed checks in `nix/checks.nix`, project matching apps through `nix/apps.nix`, and wire both from `flake.nix`.
-- [ ] T003 [US1] Add canonical lowercase `ci` and uppercase compatibility alias `CI` in `justfile` so the full flake gate plus real dev-shell build are covered.
-- [ ] T004 [P] [US2] Declare custom runner `nixos` in `.github/actionlint.yaml` and make only behavior-neutral shellcheck corrections in `.github/workflows/darwin-release.yml`.
-- [ ] T005 [US1] Record deliberate RED then restored GREEN formatting-check evidence in ignored `WIP.md` and paired runtime handoffs without leaving the representative defect in `agent-daemon.cabal`.
-- [ ] T006 [US1] Record warning-free Cabal validation, seven focused app/check results, 55 examples with 0 failures, repository-wide workflow lint, and final `./gate.sh` exit `0` in ignored `WIP.md` before commit.
+- [X] T001 [US1] Move `-Werror` behind manual default-off `development-warnings` in `agent-daemon.cabal`, enable it explicitly in `nix/project.nix`, and edit `cabal.project` only if fresh validation exposes a concrete warning.
+- [X] T002 [US1] Create strict-path app specifications and real sandboxed checks in `nix/checks.nix`, project matching apps through `nix/apps.nix`, and wire both from `flake.nix`.
+- [X] T003 [US1] Add canonical lowercase `ci` and uppercase compatibility alias `CI` in `justfile` so the full flake gate plus real dev-shell build are covered.
+- [X] T004 [P] [US2] Declare custom runner `nixos` in `.github/actionlint.yaml` and make only behavior-neutral shellcheck corrections in `.github/workflows/darwin-release.yml`.
+- [X] T005 [US1] Record deliberate RED then restored GREEN formatting-check evidence in ignored `WIP.md` and paired runtime handoffs without leaving the representative defect in `agent-daemon.cabal`.
+- [X] T006 [US1] Record warning-free Cabal validation, seven focused app/check results, 55 examples with 0 failures, repository-wide workflow lint, and final `./gate.sh` exit `0` in ignored `WIP.md` before commit.
 
 **Commit**: `ci: make Nix checks authoritative`
 

@@ -34,14 +34,14 @@ build:
     cabal build all -O0
 
 # Full CI pipeline
-CI:
+ci:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build
-    just ui-build
-    fourmolu -m check src app
-    hlint src app
-    just ui-lint
+    nix flake check --no-eval-cache
+    cabal build all -O0
+
+# Compatibility alias for the project constitution
+CI: ci
 
 # Run the daemon
 serve *args:

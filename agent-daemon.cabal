@@ -21,6 +21,11 @@ homepage:        https://github.com/lambdasistemi/tmux-ws
 bug-reports:     https://github.com/lambdasistemi/tmux-ws/issues
 extra-doc-files: README.md
 
+flag development-warnings
+  description: Enable warnings as errors for development and CI builds
+  manual:      True
+  default:     False
+
 library
   exposed-modules:
     AgentDaemon
@@ -59,8 +64,11 @@ library
   hs-source-dirs:     src
   default-language:   GHC2021
   ghc-options:
-    -Wall -Werror -Wunused-imports -Wunused-packages
-    -Wmissing-export-lists -Wname-shadowing -Wredundant-constraints
+    -Wall -Wunused-imports -Wunused-packages -Wmissing-export-lists
+    -Wname-shadowing -Wredundant-constraints
+
+  if flag(development-warnings)
+    ghc-options: -Werror
 
   default-extensions:
     DataKinds
@@ -77,9 +85,12 @@ executable agent-daemon
   hs-source-dirs:     app
   default-language:   GHC2021
   ghc-options:
-    -Wall -Werror -Wunused-imports -Wunused-packages
-    -Wmissing-export-lists -Wname-shadowing -Wredundant-constraints
-    -threaded -rtsopts -with-rtsopts=-N
+    -Wall -Wunused-imports -Wunused-packages -Wmissing-export-lists
+    -Wname-shadowing -Wredundant-constraints -threaded -rtsopts
+    -with-rtsopts=-N
+
+  if flag(development-warnings)
+    ghc-options: -Werror
 
   build-depends:
     , agent-daemon
@@ -103,9 +114,12 @@ test-suite e2e-tests
   hs-source-dirs:     test
   default-language:   GHC2021
   ghc-options:
-    -Wall -Werror -Wunused-imports -Wunused-packages
-    -Wmissing-export-lists -Wname-shadowing -Wredundant-constraints
-    -threaded -rtsopts -with-rtsopts=-N
+    -Wall -Wunused-imports -Wunused-packages -Wmissing-export-lists
+    -Wname-shadowing -Wredundant-constraints -threaded -rtsopts
+    -with-rtsopts=-N
+
+  if flag(development-warnings)
+    ghc-options: -Werror
 
   build-depends:
     , aeson           >=2.1  && <2.3

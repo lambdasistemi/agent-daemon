@@ -6,6 +6,7 @@ let
       name = "agent-daemon";
     };
     compiler-nix-name = "ghc984";
+    modules = [{ packages.agent-daemon.flags.development-warnings = true; }];
     shell = { ... }: {
       tools = {
         cabal = { };
@@ -33,18 +34,28 @@ let
     npmRoot = ./../ui;
     nodejs = pkgs.nodejs_22;
   };
+  uiBuild = pkgs.mkSpagoDerivation {
+    pname = "agent-daemon-ui-build";
+    version = "0.1.0";
+    src = ./../ui;
+    spagoYaml = ./../ui/spago.yaml;
+    spagoLock = ./../ui/spago.lock;
+    nativeBuildInputs = [ pkgs.purs pkgs.spago-unstable ];
+    buildPhase = ''
+      spago build --offline
+    '';
+    installPhase = ''
+      touch $out
+    '';
+  };
   static = pkgs.mkSpagoDerivation {
     pname = "agent-daemon-static";
     version = "0.1.0";
     src = ./../ui;
     spagoYaml = ./../ui/spago.yaml;
     spagoLock = ./../ui/spago.lock;
-    nativeBuildInputs = [
-      pkgs.purs
-      pkgs.spago-unstable
-      pkgs.esbuild
-      pkgs.nodejs_22
-    ];
+    nativeBuildInputs =
+      [ pkgs.purs pkgs.spago-unstable pkgs.esbuild pkgs.nodejs_22 ];
     buildPhase = ''
       ln -s ${uiNodeModules}/node_modules node_modules
       mkdir -p dist/fonts
@@ -67,9 +78,10 @@ let
     '';
   };
 in {
+  components = project.hsPkgs.agent-daemon.components;
   packages = {
     main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
-    inherit static;
+    inherit static uiBuild uiNodeModules;
   };
   devShells.default = project.shell;
 }

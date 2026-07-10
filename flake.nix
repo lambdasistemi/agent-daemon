@@ -14,8 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs =
-    inputs@{ self, nixpkgs, flake-utils, haskellNix, dev-assets-mkdocs
+  outputs = inputs@{ self, nixpkgs, flake-utils, haskellNix, dev-assets-mkdocs
     , purescript-overlay, mkSpagoDerivation, ... }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-darwin" ] (system:
       let
@@ -28,6 +27,14 @@
           inherit system;
         };
         project = import ./nix/project.nix { inherit pkgs; };
+        checksWithApps = import ./nix/checks.nix {
+          inherit pkgs;
+          inherit (project) components;
+          uiBuild = project.packages.uiBuild;
+          uiNodeModules = project.packages.uiNodeModules;
+          uiBundle = project.packages.static;
+          src = ./.;
+        };
         mkdocsShell = dev-assets-mkdocs.devShells.${system}.default;
         mkdocsPackages = dev-assets-mkdocs.packages.${system};
         docs = pkgs.stdenv.mkDerivation {
@@ -48,6 +55,11 @@
         packages = project.packages // {
           default = project.packages.main;
           inherit docs site;
+        };
+        checks = builtins.removeAttrs checksWithApps [ "apps" ];
+        apps = import ./nix/apps.nix {
+          inherit pkgs;
+          checks = checksWithApps;
         };
         devShells.default = project.devShells.default.overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ])
