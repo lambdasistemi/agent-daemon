@@ -1,7 +1,9 @@
 # HTTPS via Tailscale
 
-The daemon speaks plain HTTP. For HTTPS (required when the dashboard
-runs on `https://`), use [Tailscale Serve](https://tailscale.com/kb/1312/serve)
+The daemon serves the SPA and API over plain HTTP. When the browser runs on the
+same machine, open `http://127.0.0.1:8080/` directly.
+
+For another device, use [Tailscale Serve](https://tailscale.com/kb/1312/serve)
 as a TLS-terminating reverse proxy. No certificates to manage — Tailscale
 handles provisioning and renewal automatically.
 
@@ -34,7 +36,7 @@ sudo tailscale serve --https 8443 http://127.0.0.1:8080
 sudo tailscale serve --bg --https 8443 http://127.0.0.1:8080
 ```
 
-### 4. Verify
+### 4. Open the SPA
 
 ```bash
 # Check serve status
@@ -44,10 +46,20 @@ tailscale serve status
 # https://<hostname>.tailnet-name.ts.net:8443 (tailnet only)
 # |-- / proxy http://127.0.0.1:8080
 
-# Test HTTPS access
+# Test HTTPS API access
 curl https://<hostname>.tailnet-name.ts.net:8443/sessions
 # → []
 ```
+
+Then open the same HTTPS origin in the browser:
+
+```
+https://<hostname>.tailnet-name.ts.net:8443/
+```
+
+That page is the tmux-ws SPA served by the daemon through Tailscale. It is the
+supported tablet control surface because the SPA and API share the same proxied
+origin.
 
 ## How it works
 
@@ -59,21 +71,31 @@ Tailscale Serve (TLS termination)
     https://<hostname>.ts.net:8443
     │
     ▼ (plain HTTP, localhost only)
-agent-daemon
+tmux-ws daemon
     http://127.0.0.1:8080
     │
     ▼
 tmux sessions + git worktrees
 ```
 
+- The browser loads the SPA from `https://<hostname>.ts.net:8443/`
+- The SPA calls REST endpoints on the same origin, such as `/sessions`
 - The browser connects to `wss://<hostname>.ts.net:8443/sessions/<id>/terminal`
 - Tailscale terminates TLS and forwards to `ws://127.0.0.1:8080/...`
 - Only machines on your tailnet can reach the service
 - Certificates are Let's Encrypt, auto-renewed by Tailscale
 
+## Public static build
+
+The GitHub Pages build is a public static copy. It is useful for inspection and
+documentation, but browsers may block it from calling a localhost or Tailscale
+daemon because that crosses from a public origin into a local/private network
+address space. For real browser control, open the Tailscale URL above.
+
 ## Dashboard configuration
 
-In the gh-dashboard, set the agent server URL to:
+If another dashboard needs to call tmux-ws directly, set the agent server URL
+to:
 
 ```
 https://<hostname>.tailnet-name.ts.net:8443

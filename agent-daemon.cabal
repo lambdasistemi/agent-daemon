@@ -1,11 +1,14 @@
 cabal-version:   3.0
 name:            agent-daemon
 version:         0.1.1
-synopsis:        WebSocket daemon for managing Claude Code agent sessions
+synopsis:
+  Same-origin browser SPA and WebSocket daemon for tmux sessions
+
 description:
-  A Haskell WebSocket server that manages Claude Code agent
-  sessions via tmux and git worktrees. Provides terminal access
-  through xterm.js in the browser.
+  tmux-ws serves a browser SPA, REST API, and WebSocket terminal
+  relay from one local origin. It manages existing tmux sessions
+  from a browser. Use localhost on the same machine, or expose
+  the same origin through a reverse proxy such as Tailscale Serve.
 
 license:         MIT
 license-file:    LICENSE
