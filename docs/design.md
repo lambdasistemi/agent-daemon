@@ -221,8 +221,9 @@ Terminal resize is sent as a protocol message: `\x01cols;rows`.
 
 ### Static files
 
-Any path not matching the API routes serves from `--static-dir`,
-falling back to `index.html` (SPA support).
+tmux-ws serves the browser SPA from `--static-dir` on the same origin as the
+REST and WebSocket API. Any path not matching the API routes serves static
+assets first, then falls back to `index.html` for SPA routing.
 
 ### CORS
 

@@ -4,7 +4,7 @@ module Main
 
 -- \|
 -- Module      : Main
--- Description : Entry point for agent-daemon
+-- Description : Entry point for tmux-ws
 -- Copyright   : (c) Paolo Veronelli, 2026
 -- License     : MIT
 --
@@ -42,7 +42,7 @@ data Config = Config
     , configBaseDir :: FilePath
     -- ^ base directory for worktrees
     , configStaticDir :: FilePath
-    -- ^ static files directory
+    -- ^ SPA files directory
     }
 
 -- | Parse CLI options.
@@ -73,7 +73,7 @@ configParser =
         <*> strOption
             ( long "static-dir"
                 <> help
-                    "Directory for static web files"
+                    "Directory for the SPA files served by the daemon"
                 <> showDefault
                 <> value "static"
             )
@@ -87,9 +87,9 @@ main = do
                 (configParser <**> helper)
                 ( fullDesc
                     <> progDesc
-                        "Manage Claude Code agent sessions"
+                        "Serve the tmux-ws SPA and manage local tmux sessions"
                     <> header
-                        "agent-daemon - terminal session manager"
+                        "tmux-ws - browser SPA plus tmux session daemon"
                 )
     mgr <- newSessionManager
     recoverSessions (configBaseDir config) mgr

@@ -35,12 +35,12 @@ startServer
     -> FilePath
     -- ^ base directory for worktrees
     -> FilePath
-    -- ^ static files directory
+    -- ^ SPA files directory
     -> SessionManager
     -> IO ()
 startServer host port baseDir staticDir mgr = do
     putStrLn $
-        "agent-daemon listening on "
+        "tmux-ws serving SPA and API on "
             <> host
             <> ":"
             <> show port
