@@ -1,6 +1,6 @@
 { pkgs }:
 let
-  project = pkgs.haskell-nix.cabalProject' {
+  planProject = pkgs.haskell-nix.cabalProject' {
     src = pkgs.haskell-nix.cleanSourceHaskell {
       src = ./..;
       name = "agent-daemon";
@@ -29,6 +29,32 @@ let
         nodejs_22
       ];
     };
+  };
+  indexStateHashes = import pkgs.haskell-nix.indexStateHashesPath;
+  suitableIndexStates =
+    builtins.filter (state: state > planProject.index-state-max)
+    (builtins.attrNames indexStateHashes);
+  cachedIndexState = if suitableIndexStates == [ ] then
+    planProject.index-state-max
+  else
+    pkgs.lib.head suitableIndexStates;
+  indexSha256 = indexStateHashes.${cachedIndexState} or (throw
+    "Unknown Hackage index state ${cachedIndexState}");
+  dotCabal = pkgs.haskell-nix.dotCabal {
+    index-state = cachedIndexState;
+    sha256 = indexSha256;
+    nix-tools = pkgs.haskell-nix.nix-tools-unchecked;
+  };
+  project = planProject.appendModule {
+    shell.shellHook = pkgs.lib.mkAfter ''
+      cabalCacheRoot="''${XDG_CACHE_HOME:-''${HOME:?HOME must be set}/.cache}"
+      export CABAL_DIR="$cabalCacheRoot/agent-daemon/cabal-${cachedIndexState}"
+      if [[ ! -e "$CABAL_DIR/config" ]]; then
+        mkdir -p "$CABAL_DIR"
+        cp -RL ${dotCabal}/. "$CABAL_DIR/"
+        chmod -R u+w "$CABAL_DIR"
+      fi
+    '';
   };
   uiNodeModules = pkgs.importNpmLock.buildNodeModules {
     npmRoot = ./../ui;

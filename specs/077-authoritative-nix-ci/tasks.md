@@ -53,16 +53,16 @@
 
 **Goal**: Preserve the exact CI orchestration while removing the two host-state leaks exposed by the first hosted run: Cabal's empty user package index and tmux's inherited runner socket/shell state.
 
-**Independent Test**: With fresh XDG/Cabal state, `nix develop --quiet -c cabal build all -O0` succeeds from Nix-provided exact dependencies; the Haskell app uses a private tmux socket root and known interactive shell and reports 55 examples with 0 failures; the focused workflow contract and full gate remain green.
+**Independent Test**: With fresh XDG/Cabal state, `nix develop --quiet -c cabal build all -O0` succeeds from a writable copy of the Nix-pinned package index without a pre-existing user index; the Haskell app uses a private tmux socket root and known interactive shell and reports 55 examples with 0 failures; the focused workflow contract and full gate remain green.
 
 **Owned files**: `nix/project.nix`, `nix/checks.nix`, ignored `WIP.md`.
 
 **Forbidden scope**: Application, test, or UI source; workflow job names/commands/runners; Cabal metadata; other Nix files; other workflows; specs, `gate.sh`, PR metadata, and ruleset state.
 
-- [ ] T011 [US1] Record the hosted RED evidence from PR #81: six tmux-backed examples fail after the inherited tmux server disappears, and a clean runner cannot resolve `servant-server` without a user Hackage index.
-- [ ] T012 [US1] Configure the haskell.nix development shell with exact Nix-provided dependencies so the required Cabal build does not depend on mutable user package-index state.
-- [ ] T013 [US1] Run the Haskell test app with a fresh private `TMUX_TMPDIR` and an explicit packaged interactive shell so concurrent/headless runners cannot share or immediately lose its tmux server.
-- [ ] T014 [US1] Record fresh-state Cabal build success, 55 examples with 0 failures, focused workflow-contract success, full `./gate.sh` exit `0`, and navigator verification before commit.
+- [X] T011 [US1] Record the hosted RED evidence from PR #81: six tmux-backed examples fail after the inherited tmux server disappears, and a clean runner cannot resolve `servant-server` without a user Hackage index.
+- [X] T012 [US1] Configure the haskell.nix development shell with a writable copy of its plan-matched Nix-pinned package index so the required Cabal build does not depend on mutable pre-existing user index state.
+- [X] T013 [US1] Run the Haskell test app with a fresh private `TMUX_TMPDIR` and an explicit packaged interactive shell so concurrent/headless runners cannot share or immediately lose its tmux server.
+- [X] T014 [US1] Record fresh-state Cabal build success, 55 examples with 0 failures, focused workflow-contract success, full `./gate.sh` exit `0`, and navigator verification before commit.
 
 **Commit**: `fix(ci): isolate hosted runner verification`
 

@@ -11,11 +11,22 @@ let
     };
 
     haskell-tests = {
-      runtimeInputs = [ components.tests.e2e-tests pkgs.git pkgs.tmux ];
+      runtimeInputs = [
+        components.tests.e2e-tests
+        pkgs.bashInteractive
+        pkgs.coreutils
+        pkgs.git
+        pkgs.tmux
+      ];
       text = ''
         export GIT_CONFIG_COUNT=1
         export GIT_CONFIG_KEY_0=init.defaultBranch
         export GIT_CONFIG_VALUE_0=main
+        TMUX_TMPDIR="$(mktemp -d)"
+        export TMUX_TMPDIR
+        trap 'rm -rf "$TMUX_TMPDIR"' EXIT
+        SHELL="${pkgs.bashInteractive}/bin/bash"
+        export SHELL
         e2e-tests
       '';
     };

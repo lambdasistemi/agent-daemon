@@ -71,7 +71,7 @@ Ruleset mutation is deferred until GitHub reports the exact final job names on p
 - **Slice 2 RED**: Extend the workflow-lint surface with structural assertions for the nine job names, prescribed runners, dependency on Build Gate, and focused commands; run it against the old CI workflow and observe failure.
 - **Slice 2 GREEN**: Replace the CI orchestration, rerun the workflow-lint surface and full `./gate.sh`, then commit only after navigator approval.
 - **Slice 2a hosted RED**: Preserve the first hosted run's logs showing a clean runner with no Hackage index and six tmux-backed failures after the inherited server disappears. Reproduce the Cabal failure with fresh user state; do not change test semantics or job names.
-- **Slice 2a GREEN**: Make the haskell.nix shell use exact Nix-provided dependencies and give the test app a private tmux socket root plus a packaged interactive shell. Re-run the fresh-state Cabal build, all 55 tests, workflow contract, and full gate before navigator approval.
+- **Slice 2a GREEN**: Make the haskell.nix shell provision a writable copy of the package index pinned to its project plan and give the test app a private tmux socket root plus a packaged interactive shell. Re-run the fresh-state Cabal build, all 55 tests, workflow contract, and full gate before navigator approval.
 
 ## Bisect-Safe Slice Plan
 
@@ -91,7 +91,7 @@ Add the failing structural workflow contract, then make the workflow satisfy it 
 
 **Owned files**: `nix/project.nix`, `nix/checks.nix`.
 
-Use hosted RED evidence to remove mutable host dependencies without changing the nine-job workflow: exact haskell.nix shell dependencies make a clean Cabal invocation deterministic, while a private tmux socket root and known shell isolate the existing 55-example test app. Commit subject: `fix(ci): isolate hosted runner verification`.
+Use hosted RED evidence to remove mutable host dependencies without changing the nine-job workflow: a writable package index derived from the haskell.nix plan makes a clean Cabal invocation deterministic, while a private tmux socket root and known shell isolate the existing 55-example test app. Commit subject: `fix(ci): isolate hosted runner verification`.
 
 ### Slice 3 — Orchestrator-owned finalization
 
