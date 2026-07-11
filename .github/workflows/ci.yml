@@ -16,41 +16,117 @@ jobs:
     runs-on: nixos
     steps:
       - uses: actions/checkout@v6
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      - name: Build all derivations
-        run: >-
-          nix build --quiet
-          .#default
-          .#devShells.x86_64-linux.default.inputDerivation
+      - name: Run flake checks
+        run: nix flake check --no-eval-cache
+      - name: Realize development shell
+        run: nix build --quiet .#devShells.x86_64-linux.default.inputDerivation
 
-  build:
+  haskell:
+    name: Haskell build and tests
     needs: build-gate
     runs-on: nixos
     steps:
       - uses: actions/checkout@v6
-
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build Haskell
+        run: nix run --quiet .#haskell-build
+      - name: Test Haskell
+        run: nix run --quiet .#haskell-tests
 
-      - name: Build
-        run: nix build --quiet
+  formatting:
+    name: Formatting
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Check formatting
+        run: nix run --quiet .#formatting
+
+  hlint:
+    name: HLint
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Run HLint
+        run: nix run --quiet .#hlint
+
+  cabal-package:
+    name: Cabal package validation
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Validate Cabal package
+        run: nix run --quiet .#cabal-package
+
+  ui:
+    name: PureScript UI
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Verify PureScript UI
+        run: nix run --quiet .#ui
+
+  workflow-lint:
+    name: Workflow lint
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Lint workflows
+        run: nix run --quiet .#workflow-lint
+
+  dev-shell:
+    name: Dev shell build
+    needs: build-gate
+    runs-on: nixos
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build from the development shell
+        run: nix develop --quiet -c cabal build all -O0
 
   build-darwin:
-    name: Build (aarch64-darwin)
+    name: Darwin build
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v6
-
       - uses: cachix/install-nix-action@v30
         with:
           extra_nix_config: |
             extra-substituters = https://paolino.cachix.org
             extra-trusted-public-keys = paolino.cachix.org-1:ecmgO3CXdgSWA2cHlm4srknd/cLFMLmK3i3NrzeDFaE=
-
       - name: Build
         run: nix build -L

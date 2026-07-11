@@ -33,7 +33,7 @@ jobs:
 
           otool -L /tmp/bundle/bin/agent-daemon \
             | grep -v /usr/lib | grep -v /System | grep -v ":" \
-            | awk '{print $1}' | while read lib; do
+            | awk '{print $1}' | while read -r lib; do
               libname=$(basename "$lib")
               cp "$lib" /tmp/bundle/lib/
               install_name_tool -change "$lib" "@executable_path/../libexec/lib/$libname" /tmp/bundle/bin/agent-daemon
@@ -46,8 +46,8 @@ jobs:
       - name: Create tarball
         run: |
           VERSION=$(nix eval .#default.version --raw 2>/dev/null || echo "0.1.0")
-          tar czf /tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz -C /tmp/bundle .
-          shasum -a 256 /tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz
+          tar czf "/tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz" -C /tmp/bundle .
+          shasum -a 256 "/tmp/agent-daemon-${VERSION}-aarch64-darwin.tar.gz"
           echo "$VERSION" > /tmp/version.txt
 
       - name: Create release
@@ -84,7 +84,7 @@ jobs:
 
           printf 'class AgentDaemon < Formula\n  desc "WebSocket daemon for managing tmux workspaces"\n  homepage "https://github.com/lambdasistemi/tmux-ws"\n  url "%s"\n  sha256 "%s"\n  version "%s"\n\n  def install\n    bin.install "bin/agent-daemon"\n    (libexec/"lib").install Dir["lib/*"]\n  end\nend\n' "$URL" "$SHA" "$VERSION" > /tmp/agent-daemon.rb
 
-          git clone https://x-access-token:${TAP_TOKEN}@github.com/lambdasistemi/homebrew-tap.git /tmp/tap
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/lambdasistemi/homebrew-tap.git" /tmp/tap
           mkdir -p /tmp/tap/Formula
           cp /tmp/agent-daemon.rb /tmp/tap/Formula/agent-daemon.rb
           cd /tmp/tap
@@ -103,4 +103,4 @@ jobs:
           echo "==> Which:"
           which agent-daemon
           echo "==> Libs:"
-          otool -L $(which agent-daemon)
+          otool -L "$(command -v agent-daemon)"

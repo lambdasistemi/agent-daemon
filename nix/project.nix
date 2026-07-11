@@ -1,11 +1,12 @@
 { pkgs }:
 let
-  project = pkgs.haskell-nix.cabalProject' {
+  planProject = pkgs.haskell-nix.cabalProject' {
     src = pkgs.haskell-nix.cleanSourceHaskell {
       src = ./..;
       name = "agent-daemon";
     };
     compiler-nix-name = "ghc984";
+    modules = [{ packages.agent-daemon.flags.development-warnings = true; }];
     shell = { ... }: {
       tools = {
         cabal = { };
@@ -29,9 +30,49 @@ let
       ];
     };
   };
+  indexStateHashes = import pkgs.haskell-nix.indexStateHashesPath;
+  suitableIndexStates =
+    builtins.filter (state: state > planProject.index-state-max)
+    (builtins.attrNames indexStateHashes);
+  cachedIndexState = if suitableIndexStates == [ ] then
+    planProject.index-state-max
+  else
+    pkgs.lib.head suitableIndexStates;
+  indexSha256 = indexStateHashes.${cachedIndexState} or (throw
+    "Unknown Hackage index state ${cachedIndexState}");
+  dotCabal = pkgs.haskell-nix.dotCabal {
+    index-state = cachedIndexState;
+    sha256 = indexSha256;
+    nix-tools = pkgs.haskell-nix.nix-tools-unchecked;
+  };
+  project = planProject.appendModule {
+    shell.shellHook = pkgs.lib.mkAfter ''
+      cabalCacheRoot="''${XDG_CACHE_HOME:-''${HOME:?HOME must be set}/.cache}"
+      export CABAL_DIR="$cabalCacheRoot/agent-daemon/cabal-${cachedIndexState}"
+      if [[ ! -e "$CABAL_DIR/config" ]]; then
+        mkdir -p "$CABAL_DIR"
+        cp -RL ${dotCabal}/. "$CABAL_DIR/"
+        chmod -R u+w "$CABAL_DIR"
+      fi
+    '';
+  };
   uiNodeModules = pkgs.importNpmLock.buildNodeModules {
     npmRoot = ./../ui;
     nodejs = pkgs.nodejs_22;
+  };
+  uiBuild = pkgs.mkSpagoDerivation {
+    pname = "agent-daemon-ui-build";
+    version = "0.1.0";
+    src = ./../ui;
+    spagoYaml = ./../ui/spago.yaml;
+    spagoLock = ./../ui/spago.lock;
+    nativeBuildInputs = [ pkgs.purs pkgs.spago-unstable ];
+    buildPhase = ''
+      spago build --offline
+    '';
+    installPhase = ''
+      touch $out
+    '';
   };
   static = pkgs.mkSpagoDerivation {
     pname = "agent-daemon-static";
@@ -39,12 +80,8 @@ let
     src = ./../ui;
     spagoYaml = ./../ui/spago.yaml;
     spagoLock = ./../ui/spago.lock;
-    nativeBuildInputs = [
-      pkgs.purs
-      pkgs.spago-unstable
-      pkgs.esbuild
-      pkgs.nodejs_22
-    ];
+    nativeBuildInputs =
+      [ pkgs.purs pkgs.spago-unstable pkgs.esbuild pkgs.nodejs_22 ];
     buildPhase = ''
       ln -s ${uiNodeModules}/node_modules node_modules
       mkdir -p dist/fonts
@@ -67,9 +104,10 @@ let
     '';
   };
 in {
+  components = project.hsPkgs.agent-daemon.components;
   packages = {
     main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
-    inherit static;
+    inherit static uiBuild uiNodeModules;
   };
   devShells.default = project.shell;
 }
