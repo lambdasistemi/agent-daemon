@@ -4,9 +4,9 @@ Every behavior slice is one bisect-safe commit. The driver observes RED, the nav
 
 ## Slice 1 — Pure model and preservation properties
 
-- [ ] T001 Define the valid close-current topology, scopes, snapshots, consequences, and pure prepare/execute transitions for invariants I1–I7.
-- [ ] T002 Add generated QuickCheck properties proving current-only effect, stale identity, survivor validity, exact cardinality, truthful termination, and single-use rejection.
-- [ ] T003 Register the module/spec and pass focused Haskell tests plus `./gate.sh`.
+- [X] T001 Define the valid close-current topology, scopes, snapshots, consequences, and pure prepare/execute transitions for invariants I1–I7.
+- [X] T002 Add generated QuickCheck properties proving current-only effect, stale identity, survivor validity, exact cardinality, truthful termination, and single-use rejection.
+- [X] T003 Register the module/spec and pass focused Haskell tests plus `./gate.sh`.
 
 Commit: `feat: model close-current transitions`  
 Trailer: `Tasks: T001, T002, T003`
