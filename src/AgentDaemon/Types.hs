@@ -14,6 +14,13 @@ module AgentDaemon.Types
     , PaneSplitDirection (..)
     , PaneSplitRequest (..)
     , LayoutRequest (..)
+    , CloseConfirmationRequest (..)
+    , ClosePreview (..)
+    , CloseExecution (..)
+    , CloseContextScope (..)
+    , CloseActionFailure (..)
+    , CloseActionResult (..)
+    , PendingClose (..)
     , WorktreeInfo (..)
     , BranchInfo (..)
     , SyncStatus (..)
@@ -30,6 +37,7 @@ module AgentDaemon.Types
 --
 -- Domain types for tmux-backed session management.
 
+import AgentDaemon.Close (CloseConsequence (..))
 import Control.Concurrent.STM
     ( TVar
     , atomically
@@ -46,6 +54,7 @@ import Data.Aeson
     , genericToJSON
     )
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KM
 import Data.Char (isAsciiUpper, toLower)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -145,15 +154,49 @@ data Session = Session
 instance ToJSON Session where
     toJSON = genericToJSON stripPrefix
 
--- | Thread-safe session registry.
-newtype SessionManager = SessionManager
+-- | Thread-safe session registry and close-confirmation state.
+data SessionManager = SessionManager
     { sessions :: TVar (Map SessionId Session)
+    , pendingCloses
+        :: TVar (Map (SessionId, CloseContextScope) PendingClose)
+    , closeTokenSource :: TVar Integer
+    }
+
+-- | API-neutral current-context scope used as a manager key.
+data CloseContextScope
+    = CurrentPaneScope
+    | CurrentWindowScope
+    deriving stock (Eq, Ord, Show)
+
+-- | API-neutral close execution failure.
+data CloseActionFailure
+    = CloseActionStaleCurrentContext
+    | CloseActionUnavailable Text
+    | CloseActionProcessFailure Text
+    | CloseActionParseFailure Text
+    deriving stock (Eq, Show)
+
+-- | API-neutral truthful close result.
+data CloseActionResult = CloseActionResult
+    { closeActionConsequence :: CloseConsequence
+    , closeActionSessionEnded :: Bool
+    }
+    deriving stock (Eq, Show)
+
+-- | Newest pending server-side close for one session and scope.
+data PendingClose = PendingClose
+    { pendingCloseToken :: Text
+    , pendingCloseConsequence :: CloseConsequence
+    , pendingCloseAction :: IO (Either CloseActionFailure CloseActionResult)
     }
 
 -- | Create an empty session manager.
 newSessionManager :: IO SessionManager
-newSessionManager =
-    SessionManager <$> newTVarIO Map.empty
+newSessionManager = do
+    sessions <- newTVarIO Map.empty
+    pendingCloses <- newTVarIO Map.empty
+    closeTokenSource <- newTVarIO 0
+    pure SessionManager{sessions, pendingCloses, closeTokenSource}
 
 -- | Metadata for a tmux pane inside a session.
 data PaneInfo = PaneInfo
@@ -260,6 +303,52 @@ newtype LayoutRequest = LayoutRequest
 
 instance FromJSON LayoutRequest where
     parseJSON = genericParseJSON stripPrefix
+
+-- | Opaque server-minted confirmation supplied to a close execution.
+newtype CloseConfirmationRequest = CloseConfirmationRequest
+    { confirmation :: Text
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance FromJSON CloseConfirmationRequest where
+    parseJSON = Aeson.withObject "CloseConfirmationRequest" $ \value ->
+        if KM.size value == 1 && KM.member "confirmation" value
+            then CloseConfirmationRequest <$> value Aeson..: "confirmation"
+            else fail "expected only the confirmation field"
+
+-- | Current-context consequence and opaque confirmation preview.
+data ClosePreview = ClosePreview
+    { closePreviewConsequence :: CloseConsequence
+    , closePreviewConfirmation :: Text
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON ClosePreview where
+    toJSON ClosePreview{closePreviewConsequence, closePreviewConfirmation} =
+        Aeson.object
+            [ "consequence" Aeson..= consequenceText closePreviewConsequence
+            , "confirmation" Aeson..= closePreviewConfirmation
+            ]
+
+-- | Truthful result of executing a current-context close.
+data CloseExecution = CloseExecution
+    { closeExecutionConsequence :: CloseConsequence
+    , closeExecutionSessionEnded :: Bool
+    }
+    deriving stock (Eq, Show, Generic)
+
+instance ToJSON CloseExecution where
+    toJSON CloseExecution{closeExecutionConsequence, closeExecutionSessionEnded} =
+        Aeson.object
+            [ "consequence" Aeson..= consequenceText closeExecutionConsequence
+            , "sessionEnded" Aeson..= closeExecutionSessionEnded
+            ]
+
+consequenceText :: CloseConsequence -> Text
+consequenceText PaneRemoved = "pane-removed"
+consequenceText PaneAndWindowRemoved = "pane-and-window-removed"
+consequenceText WindowRemoved = "window-removed"
+consequenceText SessionEnded = "session-ended"
 
 -- | A worktree directory on disk, with repo and issue metadata.
 data WorktreeInfo = WorktreeInfo

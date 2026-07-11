@@ -3,6 +3,7 @@ module AgentDaemon.Tmux
     , TmuxCloseFailure (..)
     , TmuxCloseResult (..)
     , prepareCurrentClose
+    , preparedCloseConsequence
     , executeCurrentClose
     , createSession
     , killSession
@@ -72,6 +73,11 @@ data PreparedTmuxClose
         Int
         Int
         CloseConsequence
+
+-- | Reveal only the already-computed consequence of an opaque close.
+preparedCloseConsequence :: PreparedTmuxClose -> CloseConsequence
+preparedCloseConsequence (PreparedTmuxClose _ _ _ _ _ _ _ _ consequence) =
+    consequence
 
 -- | Failure at the live tmux close boundary.
 data TmuxCloseFailure

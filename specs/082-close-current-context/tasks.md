@@ -22,10 +22,10 @@ Trailer: `Tasks: T004, T005, T006`
 
 ## Slice 3 — Current-only Servant API
 
-- [ ] T007 Add opaque single-use confirmation types and STM state, consequence preview, execute results, and HTTP 409 stale errors.
-- [ ] T008 Add the four preview/execute routes and handlers with no pane/window target input.
-- [ ] T009 Add API integration tests for consequence classification, success, termination, invalid/reused tokens, and raced-current fail-closed refresh truth.
-- [ ] T010 Pass focused API/live Haskell tests and `./gate.sh`.
+- [x] T007 Add opaque single-use confirmation types and STM state, consequence preview, execute results, and HTTP 409 stale errors.
+- [x] T008 Add the four preview/execute routes and handlers with no pane/window target input.
+- [x] T009 Add API integration tests for consequence classification, success, termination, invalid/reused tokens, and raced-current fail-closed refresh truth.
+- [x] T010 Pass focused API/live Haskell tests and `./gate.sh`.
 
 Commit: `feat: expose close-current API actions`  
 Trailer: `Tasks: T007, T008, T009, T010`

@@ -15,6 +15,9 @@ module AgentDaemon.Api.Types
 
 import AgentDaemon.Types
     ( BranchInfo (..)
+    , CloseConfirmationRequest
+    , CloseExecution
+    , ClosePreview
     , LayoutRequest (..)
     , PaneInfo (..)
     , PaneSplitRequest (..)
@@ -48,6 +51,30 @@ type AgentApi =
             :> Capture "sid" Text
             :> QueryParam "confirm" Text
             :> Delete '[JSON] Value
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "current-pane"
+            :> "close"
+            :> "preview"
+            :> Post '[JSON] ClosePreview
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "current-pane"
+            :> "close"
+            :> ReqBody '[JSON] CloseConfirmationRequest
+            :> Post '[JSON] CloseExecution
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "current-window"
+            :> "close"
+            :> "preview"
+            :> Post '[JSON] ClosePreview
+        :<|> "sessions"
+            :> Capture "sid" Text
+            :> "current-window"
+            :> "close"
+            :> ReqBody '[JSON] CloseConfirmationRequest
+            :> Post '[JSON] CloseExecution
         :<|> "sessions"
             :> Capture "sid" Text
             :> "panes"

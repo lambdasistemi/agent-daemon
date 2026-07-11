@@ -55,7 +55,7 @@ Add PureScript/JS bindings and Halogen confirmation state/actions. Put both acti
 
 - Slice 1: `src/AgentDaemon/Close.hs`, `test/AgentDaemon/CloseSpec.hs`, `test/Main.hs` only if discovery requires it, `agent-daemon.cabal`.
 - Slice 2: `src/AgentDaemon/Tmux.hs`, `test/AgentDaemon/TmuxCloseSpec.hs`, `agent-daemon.cabal`.
-- Slice 3: `src/AgentDaemon/Types.hs`, `src/AgentDaemon/Api/Types.hs`, `src/AgentDaemon/Api.hs`, `test/AgentDaemon/ApiSpec.hs`.
+- Slice 3: `src/AgentDaemon/Types.hs`, `src/AgentDaemon/Api/Types.hs`, `src/AgentDaemon/Api.hs`, `test/AgentDaemon/ApiSpec.hs`, plus a minimal `src/AgentDaemon/Tmux.hs` forward edit exposing only the already-computed consequence of an otherwise opaque prepared close.
 - Slice 4: `ui/src/AgentDaemon/Types.purs`, `ui/src/AgentDaemon/Api.purs`, `ui/src/AgentDaemon/Api.js`, `ui/src/Main.purs`, `ui/dist/index.css`.
 - Orchestrator: `specs/082-close-current-context/*`, `gate.sh`, PR metadata, runtime evidence outside the repository.
 
