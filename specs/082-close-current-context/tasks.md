@@ -43,10 +43,10 @@ Trailer: `Tasks: T011, T012, T013, T014, T015`
 
 ## Final verification and handoff — orchestrator owned
 
-- [ ] T016 Independently run focused Haskell/API/state-machine and disposable live-tmux proof, then fresh full local CI.
-- [ ] T017 Run touch browser smoke and capture reviewed evidence at 390×844, 768×1024, and 1024×768 with zero console/runtime errors.
-- [ ] T018 Audit the operator-approved Lean waiver, accepted semantics, task/commit accounting, PR assignment/label/links/body, and exact hosted checks.
-- [ ] T019 Pass finalization audit, remove `gate.sh` only in the final sentinel commit, push, and hand the draft PR back without merging.
+- [x] T016 Independently run focused Haskell/API/state-machine and disposable live-tmux proof, then fresh full local CI.
+- [x] T017 Run touch browser smoke and capture reviewed evidence at 390×844, 768×1024, and 1024×768 with zero console/runtime errors.
+- [x] T018 Audit the operator-approved Lean waiver, accepted semantics, task/commit accounting, PR assignment/label/links/body, and exact hosted checks.
+- [x] T019 Pass finalization audit, remove `gate.sh` only in the final sentinel commit, push, and hand the draft PR back without merging.
 
 ## Proof-mechanism waiver
 
