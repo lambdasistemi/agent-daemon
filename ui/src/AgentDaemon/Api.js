@@ -44,6 +44,33 @@ export const deleteSessionImpl = (base) => (sessionId) => () =>
     { method: "DELETE" }
   ).then(readJsonResponse).then(() => undefined);
 
+const closeCurrentUrl = (base, sessionId, path) =>
+  `${base}/sessions/${encodeURIComponent(sessionId)}/${path}`;
+
+const previewCloseCurrent = (base, sessionId, path) =>
+  fetch(closeCurrentUrl(base, sessionId, path), {
+    method: "POST"
+  }).then(readJsonResponse);
+
+const closeCurrent = (base, sessionId, path, confirmation) =>
+  fetch(closeCurrentUrl(base, sessionId, path), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation })
+  }).then(readJsonResponse);
+
+export const previewCloseCurrentPaneImpl = (base) => (sessionId) => () =>
+  previewCloseCurrent(base, sessionId, "current-pane/close/preview");
+
+export const closeCurrentPaneImpl = (base) => (sessionId) => (confirmation) => () =>
+  closeCurrent(base, sessionId, "current-pane/close", confirmation);
+
+export const previewCloseCurrentWindowImpl = (base) => (sessionId) => () =>
+  previewCloseCurrent(base, sessionId, "current-window/close/preview");
+
+export const closeCurrentWindowImpl = (base) => (sessionId) => (confirmation) => () =>
+  closeCurrent(base, sessionId, "current-window/close", confirmation);
+
 export const selectWindowImpl = (base) => (sessionId) => (index) => () =>
   fetch(`${base}/sessions/${encodeURIComponent(sessionId)}/windows`, {
     method: "POST",

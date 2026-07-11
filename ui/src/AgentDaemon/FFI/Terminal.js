@@ -480,8 +480,7 @@ export const mountTerminal = (controller) => (elementId) => () => {
   }
 };
 
-export const attachTerminal = (controller) => (url) => (label) => () => {
-  disconnectTerminal(controller)();
+const openTerminalSocket = (controller, url, label) => {
   controller.term.clear();
   const socket = new WebSocket(url);
   controller.socket = socket;
@@ -512,15 +511,32 @@ export const attachTerminal = (controller) => (url) => (label) => () => {
   };
 
   socket.onerror = () => {
+    if (controller.socket !== socket) return;
     controller.callbacks.onError();
   };
+};
+
+export const attachTerminal = (controller) => (url) => (label) => () => {
+  disconnectTerminal(controller)();
+  openTerminalSocket(controller, url, label);
+};
+
+export const replaceTerminalAfterDestructiveClose = (controller) => (url) => (label) => () => {
+  abandonTerminal(controller)();
+  openTerminalSocket(controller, url, label);
 };
 
 export const disconnectTerminal = (controller) => () => {
   if (!controller.socket) return;
   const socket = controller.socket;
   controller.socket = null;
-  socket.close();
+  if (socket.readyState < WebSocket.CLOSING) {
+    socket.close();
+  }
+};
+
+export const abandonTerminal = (controller) => () => {
+  controller.socket = null;
 };
 
 export const fitTerminal = (controller) => () => {

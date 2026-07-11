@@ -1,8 +1,12 @@
 module AgentDaemon.Api
-  ( fetchSessions
+  ( closeCurrentPane
+  , closeCurrentWindow
+  , fetchSessions
   , fetchWindows
   , createWindow
   , deleteSession
+  , previewCloseCurrentPane
+  , previewCloseCurrentWindow
   , selectWindow
   , liveSession
   , scrollSession
@@ -10,7 +14,7 @@ module AgentDaemon.Api
 
 import Prelude
 
-import AgentDaemon.Types (Session, WindowInfo)
+import AgentDaemon.Types (CloseExecution, ClosePreview, Session, WindowInfo)
 import Control.Promise (Promise, toAffE)
 import Effect (Effect)
 import Effect.Aff (Aff)
@@ -26,6 +30,18 @@ foreign import createWindowImpl
 
 foreign import deleteSessionImpl
   :: String -> String -> Effect (Promise Unit)
+
+foreign import previewCloseCurrentPaneImpl
+  :: String -> String -> Effect (Promise ClosePreview)
+
+foreign import closeCurrentPaneImpl
+  :: String -> String -> String -> Effect (Promise CloseExecution)
+
+foreign import previewCloseCurrentWindowImpl
+  :: String -> String -> Effect (Promise ClosePreview)
+
+foreign import closeCurrentWindowImpl
+  :: String -> String -> String -> Effect (Promise CloseExecution)
 
 foreign import selectWindowImpl
   :: String -> String -> Int -> Effect (Promise Unit)
@@ -51,6 +67,22 @@ createWindow base sessionId =
 deleteSession :: String -> String -> Aff Unit
 deleteSession base sessionId =
   toAffE (deleteSessionImpl base sessionId)
+
+previewCloseCurrentPane :: String -> String -> Aff ClosePreview
+previewCloseCurrentPane base sessionId =
+  toAffE (previewCloseCurrentPaneImpl base sessionId)
+
+closeCurrentPane :: String -> String -> String -> Aff CloseExecution
+closeCurrentPane base sessionId confirmation =
+  toAffE (closeCurrentPaneImpl base sessionId confirmation)
+
+previewCloseCurrentWindow :: String -> String -> Aff ClosePreview
+previewCloseCurrentWindow base sessionId =
+  toAffE (previewCloseCurrentWindowImpl base sessionId)
+
+closeCurrentWindow :: String -> String -> String -> Aff CloseExecution
+closeCurrentWindow base sessionId confirmation =
+  toAffE (closeCurrentWindowImpl base sessionId confirmation)
 
 selectWindow :: String -> String -> Int -> Aff Unit
 selectWindow base sessionId index =

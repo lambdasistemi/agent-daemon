@@ -1165,3 +1165,103 @@ button:active:not(:disabled),
     background: var(--surface-active);
   }
 }
+
+.destructive-settings-group {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.destructive-settings-copy,
+.close-preview-status,
+.close-execute-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.close-current-action {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+}
+
+.close-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: calc(18px + var(--safe-top)) calc(18px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(18px + var(--safe-left));
+  background: rgba(0, 0, 0, 0.56);
+}
+
+.close-sheet {
+  width: min(480px, 100%);
+  max-width: 100%;
+  max-height: calc(100vh - 36px - var(--safe-top) - var(--safe-bottom));
+  max-height: calc(100dvh - 36px - var(--safe-top) - var(--safe-bottom));
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+}
+
+.close-sheet-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.close-sheet-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.close-sheet-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.close-sheet-cancel,
+.close-sheet-submit {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  white-space: normal;
+}
+
+@media (max-width: 420px) {
+  .close-sheet-backdrop {
+    place-items: end center;
+    padding: calc(10px + var(--safe-top)) calc(10px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(10px + var(--safe-left));
+  }
+
+  .close-sheet {
+    max-height: calc(100vh - 20px - var(--safe-top) - var(--safe-bottom));
+    max-height: calc(100dvh - 20px - var(--safe-top) - var(--safe-bottom));
+    padding: 16px;
+  }
+
+  .close-sheet-actions {
+    grid-template-columns: 1fr;
+  }
+}

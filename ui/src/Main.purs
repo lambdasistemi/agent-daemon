@@ -5,11 +5,11 @@ import Prelude
 import AgentDaemon.Api as Api
 import AgentDaemon.FFI.Browser as Browser
 import AgentDaemon.FFI.Terminal as Terminal
-import AgentDaemon.Types (PasteSnippet, Session, WindowInfo)
+import AgentDaemon.Types (CloseExecution, ClosePreview, PasteSnippet, Session, WindowInfo)
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isNothing)
 import Effect (Effect)
 import Effect.Aff (Aff, attempt)
 import Effect.Aff.Class (liftAff)
@@ -30,6 +30,22 @@ main = HA.runHalogenAff do
 
 type Slots :: forall k. Row k
 type Slots = ()
+
+data CloseScope
+  = ClosePane
+  | CloseWindow
+
+type CloseDialog =
+  { scope :: CloseScope
+  , sessionId :: String
+  , consequence :: String
+  , confirmation :: String
+  }
+
+type ReconnectNotice =
+  { sessionId :: String
+  , status :: String
+  }
 
 type State =
   { sessions :: Array Session
@@ -54,6 +70,11 @@ type State =
   , autoAttachAttempted :: Boolean
   , pendingStop :: Maybe Session
   , confirmInput :: String
+  , pendingClose :: Maybe CloseDialog
+  , closePreviewLoading :: Boolean
+  , closeExecuting :: Boolean
+  , endedNotice :: Maybe String
+  , reconnectNotice :: Maybe ReconnectNotice
   , terminal :: Maybe Terminal.TerminalController
   }
 
@@ -99,6 +120,9 @@ data Action
   | CloseStopDialog
   | SetConfirmInput String
   | ConfirmStopSession
+  | OpenCloseCurrent CloseScope
+  | CancelCloseCurrent
+  | ConfirmCloseCurrent
   | AttachSession String
   | ChooseSession String
   | CreateWindow
@@ -131,6 +155,11 @@ appComponent = H.mkComponent
       , autoAttachAttempted: false
       , pendingStop: Nothing
       , confirmInput: ""
+      , pendingClose: Nothing
+      , closePreviewLoading: false
+      , closeExecuting: false
+      , endedNotice: Nothing
+      , reconnectNotice: Nothing
       , terminal: Nothing
       }
   , render
@@ -148,6 +177,7 @@ render state =
     , renderMain state
     , renderActionDock state
     , renderConfirm state
+    , renderCloseConfirm state
     ]
 
 renderHeader :: State -> H.ComponentHTML Action Slots Aff
@@ -615,6 +645,42 @@ renderSettings state =
             (AdjustTerminalFontSize 1)
             Nothing
         ]
+    , if state.attachedSession == "" then
+        HH.text ""
+      else
+        HH.div
+          [ cls "destructive-settings-group" ]
+          [ HH.div
+              [ cls "section-title" ]
+              [ HH.text "Current tmux context" ]
+          , HH.p
+              [ cls "destructive-settings-copy" ]
+              [ HH.text "The server confirms what will close before either action runs." ]
+          , HH.button
+              [ cls "close-current-action danger-outline"
+              , HP.disabled state.closePreviewLoading
+              , HE.onClick \_ -> OpenCloseCurrent ClosePane
+              ]
+              [ icon "trash-2"
+              , HH.text "Close this pane"
+              ]
+          , HH.button
+              [ cls "close-current-action danger-outline"
+              , HP.disabled state.closePreviewLoading
+              , HE.onClick \_ -> OpenCloseCurrent CloseWindow
+              ]
+              [ icon "trash-2"
+              , HH.text "Close this window"
+              ]
+          , if state.closePreviewLoading then
+              HH.p
+                [ cls "close-preview-status"
+                , HP.attr (HH.AttrName "role") "status"
+                ]
+                [ HH.text "Loading close consequence…" ]
+            else
+              HH.text ""
+          ]
     ]
 
 renderMain :: State -> H.ComponentHTML Action Slots Aff
@@ -726,6 +792,57 @@ renderConfirm state =
             ]
         ]
 
+renderCloseConfirm :: State -> H.ComponentHTML Action Slots Aff
+renderCloseConfirm state =
+  case state.pendingClose of
+    Nothing ->
+      HH.text ""
+    Just pending ->
+      HH.div
+        [ cls "close-sheet-backdrop" ]
+        [ HH.div
+            [ cls "close-sheet"
+            , HP.attr (HH.AttrName "role") "dialog"
+            , HP.attr (HH.AttrName "aria-modal") "true"
+            , HP.attr (HH.AttrName "aria-labelledby") "close-sheet-title"
+            , HP.attr (HH.AttrName "aria-describedby") "close-sheet-copy"
+            ]
+            [ HH.h2
+                [ cls "close-sheet-title"
+                , HP.id "close-sheet-title"
+                ]
+                [ HH.text (closeActionLabel pending.scope) ]
+            , HH.p
+                [ cls "close-sheet-copy"
+                , HP.id "close-sheet-copy"
+                ]
+                [ HH.text (closeConsequenceCopy pending.scope pending.consequence) ]
+            , HH.div
+                [ cls "close-sheet-actions" ]
+                [ HH.button
+                    [ cls "close-sheet-cancel"
+                    , HP.disabled state.closeExecuting
+                    , HE.onClick \_ -> CancelCloseCurrent
+                    ]
+                    [ HH.text "Cancel" ]
+                , HH.button
+                    [ cls "close-sheet-submit danger"
+                    , HP.disabled state.closeExecuting
+                    , HE.onClick \_ -> ConfirmCloseCurrent
+                    ]
+                    [ HH.text (closeActionLabel pending.scope) ]
+                ]
+            , if state.closeExecuting then
+                HH.p
+                  [ cls "close-execute-status"
+                  , HP.attr (HH.AttrName "role") "status"
+                  ]
+                  [ HH.text "Closing the server-confirmed current context…" ]
+              else
+                HH.text ""
+            ]
+        ]
+
 handleAction
   :: forall o
    . Action
@@ -806,7 +923,9 @@ handleAction = case _ of
               if attached == "" then false else state.terminalSelectionMode
           , pasteMenuOpen =
               if attached == "" then false else state.pasteMenuOpen
-          , status = show (Array.length sessions) <> " session(s)"
+          , status = fromMaybe
+              (show (Array.length sessions) <> " session(s)")
+              state.endedNotice
           }
         if shouldAutoAttach then
           handleAction (AttachSession selected)
@@ -1059,6 +1178,18 @@ handleAction = case _ of
               H.modify_ _ { status = "stopped: " <> session.id }
               syncUi
 
+  OpenCloseCurrent scope ->
+    openCloseCurrent scope
+
+  CancelCloseCurrent -> do
+    state <- H.get
+    when (not state.closeExecuting) do
+      H.modify_ _ { pendingClose = Nothing }
+      syncUi
+
+  ConfirmCloseCurrent ->
+    confirmCloseCurrent
+
   AttachSession sessionId -> do
     state <- H.get
     case state.terminal of
@@ -1073,6 +1204,11 @@ handleAction = case _ of
           { selectedSession = sessionId
           , attachedSession = sessionId
           , windows = []
+          , pendingClose = Nothing
+          , closePreviewLoading = false
+          , closeExecuting = false
+          , endedNotice = Nothing
+          , reconnectNotice = Nothing
           , sessionMenuOpen = false
           , windowMenuOpen = false
           , terminalMenuOpen = false
@@ -1165,6 +1301,11 @@ handleAction = case _ of
     H.modify_ _
       { attachedSession = ""
       , windows = []
+      , pendingClose = Nothing
+      , closePreviewLoading = false
+      , closeExecuting = false
+      , endedNotice = Nothing
+      , reconnectNotice = Nothing
       , sessionMenuOpen = false
       , windowMenuOpen = false
       , terminalMenuOpen = false
@@ -1176,9 +1317,22 @@ handleAction = case _ of
 
   HandleTerminal event -> do
     case event of
-      TerminalOpened label ->
-        H.modify_ _ { status = "attached: " <> label }
-      TerminalClosed ->
+      TerminalOpened label -> do
+        state <- H.get
+        case state.reconnectNotice of
+          Just reconnect -> do
+            H.modify_ _
+              { attachedSession = reconnect.sessionId
+              , selectedSession = reconnect.sessionId
+              , reconnectNotice = Nothing
+              , status = reconnect.status
+              }
+            refreshWindows reconnect.sessionId
+          Nothing ->
+            H.modify_ _
+              { status = fromMaybe ("attached: " <> label) state.endedNotice }
+      TerminalClosed -> do
+        state <- H.get
         H.modify_ _
           { attachedSession = ""
           , windows = []
@@ -1187,11 +1341,12 @@ handleAction = case _ of
           , terminalMenuOpen = false
           , terminalSelectionMode = false
           , pasteMenuOpen = false
-          , status = "disconnected"
+          , status = fromMaybe "disconnected" state.endedNotice
           }
       TerminalErrored ->
         H.modify_ _
           { status = "connection error"
+          , reconnectNotice = Nothing
           , terminalMenuOpen = false
           , terminalSelectionMode = false
           , pasteMenuOpen = false
@@ -1205,6 +1360,248 @@ handleAction = case _ of
     case event of
       TerminalScrollGesture _ -> pure unit
       _ -> syncUi
+
+openCloseCurrent
+  :: forall o
+   . CloseScope
+  -> H.HalogenM State Action Slots o Aff Unit
+openCloseCurrent scope = do
+  state <- H.get
+  when
+    ( state.attachedSession /= ""
+        && not state.closePreviewLoading
+        && isNothing state.pendingClose
+    )
+    do
+      let sessionId = state.attachedSession
+      H.modify_ _
+        { closePreviewLoading = true
+        , status = "Loading consequence for " <> closeActionLabel scope <> "…"
+        }
+      syncUi
+      base <- liftEffect $ Browser.apiBase state.server
+      result <- liftAff $ attempt (previewCloseCurrent scope base sessionId)
+      latest <- H.get
+      when
+        ( latest.attachedSession == sessionId
+            && latest.closePreviewLoading
+        )
+        do
+          case result of
+            Left err -> do
+              let notice = closeActionLabel scope <> " preview failed: " <> message err
+              H.modify_ _
+                { pendingClose = Nothing
+                , closePreviewLoading = false
+                , closeExecuting = false
+                , settingsOpen = false
+                , status = notice
+                }
+              void $ refreshSurvivingClose sessionId notice
+            Right preview ->
+              H.modify_ _
+                { pendingClose = Just
+                    { scope: scope
+                    , sessionId: sessionId
+                    , consequence: preview.consequence
+                    , confirmation: preview.confirmation
+                    }
+                , closePreviewLoading = false
+                , closeExecuting = false
+                , settingsOpen = false
+                , status = "Review " <> closeActionLabel scope
+                }
+          syncUi
+
+confirmCloseCurrent
+  :: forall o
+   . H.HalogenM State Action Slots o Aff Unit
+confirmCloseCurrent = do
+  state <- H.get
+  case state.pendingClose of
+    Nothing -> pure unit
+    Just pending ->
+      when (not state.closeExecuting) do
+        H.modify_ _
+          { closeExecuting = true
+          , status = "Closing the server-confirmed current context…"
+          }
+        syncUi
+        base <- liftEffect $ Browser.apiBase state.server
+        result <- liftAff $ attempt
+          (executeCloseCurrent pending.scope base pending.sessionId pending.confirmation)
+        case result of
+          Left err -> do
+            let notice = closeActionLabel pending.scope <> " failed: " <> message err
+            H.modify_ _
+              { pendingClose = Nothing
+              , closePreviewLoading = false
+              , closeExecuting = false
+              , status = notice
+              }
+            void $ refreshSurvivingClose pending.sessionId notice
+          Right execution ->
+            if execution.sessionEnded then
+              finishEndedClose pending execution
+            else
+              finishSurvivingClose pending execution
+        syncUi
+
+previewCloseCurrent :: CloseScope -> String -> String -> Aff ClosePreview
+previewCloseCurrent scope base sessionId =
+  case scope of
+    ClosePane -> Api.previewCloseCurrentPane base sessionId
+    CloseWindow -> Api.previewCloseCurrentWindow base sessionId
+
+executeCloseCurrent
+  :: CloseScope
+  -> String
+  -> String
+  -> String
+  -> Aff CloseExecution
+executeCloseCurrent scope base sessionId confirmation =
+  case scope of
+    ClosePane -> Api.closeCurrentPane base sessionId confirmation
+    CloseWindow -> Api.closeCurrentWindow base sessionId confirmation
+
+finishSurvivingClose
+  :: forall o
+   . CloseDialog
+  -> CloseExecution
+  -> H.HalogenM State Action Slots o Aff Unit
+finishSurvivingClose pending execution = do
+  let notice = closeSuccessStatus pending.scope execution.consequence false
+  H.modify_ _
+    { pendingClose = Nothing
+    , closePreviewLoading = false
+    , closeExecuting = false
+    , status = notice
+    }
+  sessionExists <- refreshSurvivingClose pending.sessionId notice
+  when sessionExists do
+    state <- H.get
+    case state.terminal of
+      Nothing -> H.modify_ _ { status = notice <> "; terminal not ready" }
+      Just terminal -> do
+        let reconnectStatus = state.status
+        url <- liftEffect $
+          Browser.sessionTerminalWsUrl state.server pending.sessionId
+        H.modify_ _
+          { reconnectNotice = Just
+              { sessionId: pending.sessionId
+              , status: reconnectStatus
+              }
+          }
+        liftEffect do
+          Terminal.setSelectionMode terminal false
+          Terminal.replaceTerminalAfterDestructiveClose terminal url
+            ("session " <> pending.sessionId)
+
+finishEndedClose
+  :: forall o
+   . CloseDialog
+  -> CloseExecution
+  -> H.HalogenM State Action Slots o Aff Unit
+finishEndedClose pending execution = do
+  let notice = closeSuccessStatus pending.scope execution.consequence true
+  state <- H.get
+  H.modify_ _
+    { pendingClose = Nothing
+    , closePreviewLoading = false
+    , closeExecuting = false
+    , endedNotice = Just notice
+    , reconnectNotice = Nothing
+    , attachedSession = ""
+    , selectedSession = ""
+    , windows = []
+    , settingsOpen = false
+    , sessionMenuOpen = false
+    , windowMenuOpen = false
+    , terminalMenuOpen = false
+    , terminalSelectionMode = false
+    , pasteMenuOpen = false
+    , status = notice
+    }
+  case state.terminal of
+    Nothing -> pure unit
+    Just terminal -> liftEffect do
+      Terminal.setSelectionMode terminal false
+      Terminal.abandonTerminal terminal
+  refreshEndedClose notice
+
+refreshSurvivingClose
+  :: forall o
+   . String
+  -> String
+  -> H.HalogenM State Action Slots o Aff Boolean
+refreshSurvivingClose sessionId notice = do
+  state <- H.get
+  base <- liftEffect $ Browser.apiBase state.server
+  sessionsResult <- liftAff $ attempt (Api.fetchSessions base)
+  case sessionsResult of
+    Left err -> do
+      let refreshNotice = notice <> "; session refresh failed: " <> message err
+      H.modify_ _ { status = refreshNotice }
+      pure false
+    Right sessions ->
+      if Array.any (\session -> session.id == sessionId) sessions then do
+        windowsResult <- liftAff $ attempt (Api.fetchWindows base sessionId)
+        case windowsResult of
+          Left err -> do
+            let refreshNotice = notice <> "; window refresh failed: " <> message err
+            H.modify_ _
+              { sessions = sessions
+              , windows = []
+              , attachedSession = sessionId
+              , selectedSession = sessionId
+              , status = refreshNotice
+              }
+          Right windows ->
+            H.modify_ _
+              { sessions = sessions
+              , windows = windows
+              , attachedSession = sessionId
+              , selectedSession = sessionId
+              , status = notice
+              }
+        pure true
+      else do
+        let missingNotice = notice <> "; session no longer exists"
+        H.modify_ _
+          { sessions = sessions
+          , windows = []
+          , attachedSession = ""
+          , selectedSession = maybeSessionId (Array.head sessions)
+          , status = missingNotice
+          }
+        case state.terminal of
+          Nothing -> pure unit
+          Just terminal -> liftEffect do
+            Terminal.setSelectionMode terminal false
+            Terminal.disconnectTerminal terminal
+        pure false
+
+refreshEndedClose
+  :: forall o
+   . String
+  -> H.HalogenM State Action Slots o Aff Unit
+refreshEndedClose notice = do
+  state <- H.get
+  base <- liftEffect $ Browser.apiBase state.server
+  result <- liftAff $ attempt (Api.fetchSessions base)
+  case result of
+    Left err -> do
+      let refreshNotice = notice <> "; session refresh failed: " <> message err
+      H.modify_ _ { endedNotice = Just refreshNotice, status = refreshNotice }
+    Right sessions ->
+      H.modify_ _
+        { sessions = sessions
+        , selectedSession = maybeSessionId (Array.head sessions)
+        , attachedSession = ""
+        , windows = []
+        , endedNotice = Just notice
+        , status = notice
+        }
 
 sendTerminalAction
   :: forall o
@@ -1448,6 +1845,36 @@ windowLabel :: WindowInfo -> String
 windowLabel windowInfo =
   if windowInfo.name == "" then "window " <> show windowInfo.index
   else windowInfo.name
+
+closeActionLabel :: CloseScope -> String
+closeActionLabel = case _ of
+  ClosePane -> "Close this pane"
+  CloseWindow -> "Close this window"
+
+closeConsequenceCopy :: CloseScope -> String -> String
+closeConsequenceCopy scope consequence =
+  case consequence of
+    "pane-removed" ->
+      "The current pane will close. Its window and session will remain."
+    "pane-and-window-removed" ->
+      "This is the window's last pane. The current pane and window will close while the session remains."
+    "window-removed" ->
+      "The current window and all its panes will close. The session will remain."
+    "session-ended" ->
+      case scope of
+        ClosePane ->
+          "This is the final pane in the final window. Closing it will end the session."
+        CloseWindow ->
+          "This is the final window. Closing it and all its panes will end the session."
+    _ ->
+      "The server reports consequence “" <> consequence <> "”."
+
+closeSuccessStatus :: CloseScope -> String -> Boolean -> String
+closeSuccessStatus scope consequence sessionEnded =
+  closeActionLabel scope
+    <> " complete: "
+    <> consequence
+    <> if sessionEnded then " — session ended" else " — session remains"
 
 pastePreview :: String -> String
 pastePreview = identity

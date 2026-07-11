@@ -1,11 +1,13 @@
 module AgentDaemon.FFI.Terminal
   ( TerminalCallbacks
   , TerminalController
+  , abandonTerminal
   , attachTerminal
   , createTerminal
   , disconnectTerminal
   , fitTerminal
   , mountTerminal
+  , replaceTerminalAfterDestructiveClose
   , sendCtrlB
   , sendCtrlBCommand
   , sendEscape
@@ -41,7 +43,12 @@ foreign import mountTerminal :: TerminalController -> String -> Effect Unit
 foreign import attachTerminal
   :: TerminalController -> String -> String -> Effect Unit
 
+foreign import replaceTerminalAfterDestructiveClose
+  :: TerminalController -> String -> String -> Effect Unit
+
 foreign import disconnectTerminal :: TerminalController -> Effect Unit
+
+foreign import abandonTerminal :: TerminalController -> Effect Unit
 
 foreign import fitTerminal :: TerminalController -> Effect Unit
 

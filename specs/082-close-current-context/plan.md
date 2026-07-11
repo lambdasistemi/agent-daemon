@@ -49,14 +49,14 @@ Add JSON types, STM pending-confirmation state, the four current-only routes, ha
 
 ### Slice 4 — Touch UI, confirmations, and recovery
 
-Add PureScript/JS bindings and Halogen confirmation state/actions. Put both actions in the attached-session settings surface, show consequence-based no-typing sheets, and handle survive/end/stale outcomes. Extend CSS only for touch-safe destructive grouping and sheets. With no PureScript unit harness in this repository, RED is the pre-change missing control/API behavior; proof is compiler/lint/bundle plus live browser assertions and screenshots.
+Add PureScript/JS bindings and Halogen confirmation state/actions. Put both actions in the attached-session settings surface, show consequence-based no-typing sheets, and handle survive/end/stale outcomes. Destructive recovery abandons the server-closing terminal socket before survivor replacement or ended cleanup, while ordinary session switching and explicit disconnect still close their owned socket normally. Extend CSS only for touch-safe destructive grouping and sheets. With no PureScript unit harness in this repository, RED is the pre-change missing control/API behavior; proof is compiler/lint/bundle plus live browser assertions and screenshots.
 
 ## Owned files by slice
 
 - Slice 1: `src/AgentDaemon/Close.hs`, `test/AgentDaemon/CloseSpec.hs`, `test/Main.hs` only if discovery requires it, `agent-daemon.cabal`.
 - Slice 2: `src/AgentDaemon/Tmux.hs`, `test/AgentDaemon/TmuxCloseSpec.hs`, `agent-daemon.cabal`.
 - Slice 3: `src/AgentDaemon/Types.hs`, `src/AgentDaemon/Api/Types.hs`, `src/AgentDaemon/Api.hs`, `test/AgentDaemon/ApiSpec.hs`, plus a minimal `src/AgentDaemon/Tmux.hs` forward edit exposing only the already-computed consequence of an otherwise opaque prepared close.
-- Slice 4: `ui/src/AgentDaemon/Types.purs`, `ui/src/AgentDaemon/Api.purs`, `ui/src/AgentDaemon/Api.js`, `ui/src/Main.purs`, `ui/dist/index.css`.
+- Slice 4: `ui/src/AgentDaemon/Types.purs`, `ui/src/AgentDaemon/Api.purs`, `ui/src/AgentDaemon/Api.js`, `ui/src/AgentDaemon/FFI/Terminal.purs`, `ui/src/AgentDaemon/FFI/Terminal.js`, `ui/src/Main.purs`, `ui/dist/index.css`.
 - Orchestrator: `specs/082-close-current-context/*`, `gate.sh`, PR metadata, runtime evidence outside the repository.
 
 No slice may touch #78 release/packaging/workflow scope, #79 broad docs/governance scope, unrelated terminal/session/paste behavior, the GHC version, or the main worktree's untracked specifications.

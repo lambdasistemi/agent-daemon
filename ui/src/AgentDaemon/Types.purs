@@ -1,8 +1,20 @@
 module AgentDaemon.Types
-  ( PasteSnippet
+  ( CloseExecution
+  , ClosePreview
+  , PasteSnippet
   , Session
   , WindowInfo
   ) where
+
+type ClosePreview =
+  { consequence :: String
+  , confirmation :: String
+  }
+
+type CloseExecution =
+  { consequence :: String
+  , sessionEnded :: Boolean
+  }
 
 type PasteSnippet =
   { name :: String

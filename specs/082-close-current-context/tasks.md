@@ -32,11 +32,11 @@ Trailer: `Tasks: T007, T008, T009, T010`
 
 ## Slice 4 — Touch confirmations and recovery
 
-- [ ] T011 Add PureScript/JS API bindings and response types for pane/window preview and execution.
-- [ ] T012 Add exactly two attached-session actions with consequence-based, no-typing Cancel/destructive confirmation sheets and accessible labels.
-- [ ] T013 Reconnect/refresh a surviving context, show truthful session-ended state, and fail closed with actionable stale status and refresh.
-- [ ] T014 Add only the CSS needed for ≥44×44 touch controls, bounded sheets, destructive hierarchy, and all accepted viewports.
-- [ ] T015 Pass UI compile/lint/bundle proof and `./gate.sh`; document the no-unit-harness RED exception.
+- [x] T011 Add PureScript/JS API bindings and response types for pane/window preview and execution.
+- [x] T012 Add exactly two attached-session actions with consequence-based, no-typing Cancel/destructive confirmation sheets and accessible labels.
+- [x] T013 Reconnect/refresh a surviving context, show truthful session-ended state, and fail closed with actionable stale status and refresh.
+- [x] T014 Add only the CSS needed for ≥44×44 touch controls, bounded sheets, destructive hierarchy, and all accepted viewports.
+- [x] T015 Pass UI compile/lint/bundle proof and `./gate.sh`; document the no-unit-harness RED exception.
 
 Commit: `feat: add touch close-current actions`  
 Trailer: `Tasks: T011, T012, T013, T014, T015`
