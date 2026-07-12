@@ -12,8 +12,12 @@
 - [X] T005-S2 Repair the Darwin bundle layout, release safety, and Homebrew smoke.
 - [X] T006-S2 Add CI version drift and workflow validation coverage.
 
+## Slice 3 — runner-hermetic version preflight
+
+- [X] T010-S3 Remove the CI drift check's dependency on host `awk` and enforce the boundary.
+
 ## Publication
 
-- [ ] T007 Merge the green implementation PR and verify Pages.
-- [ ] T008 Merge the green release PR and verify `v0.2.0` artifacts.
-- [ ] T009 Pin and smoke the development service from the released revision.
+- [ ] P007 Merge the green implementation PR and verify Pages.
+- [ ] P008 Merge the green release PR and verify `v0.2.0` artifacts.
+- [ ] P009 Pin and smoke the development service from the released revision.

@@ -116,6 +116,18 @@ let
           assert_eq "$count" 1 "$job runs $command"
         }
 
+        assert_no_host_parser() {
+          local command="$1"
+          local label="$2"
+
+          if printf '%s\n' "$command" \
+            | grep -Eq '(^|[^[:alnum:]_-])(awk|cut|grep|jq|perl|python[0-9]*|ruby|sed|yq)([^[:alnum:]_-]|$)'; then
+            printf 'workflow contract: %s invokes an unprovisioned host parser\n' \
+              "$label" >&2
+            return 1
+          fi
+        }
+
         assert_version_contract() {
           local manifest_path="$1"
           local cabal_path="$2"
@@ -233,6 +245,14 @@ let
             '[.jobs["build-gate"].steps[] | select(.name == "Cabal version matches manifest")] | length' \
             "$workflow")" \
           1 'CI manifest drift guard count'
+        version_preflight="$(
+          yq -r \
+            '.jobs["build-gate"].steps[] | select(.name == "Cabal version matches manifest") | .run' \
+            "$workflow"
+        )"
+        assert_no_host_parser \
+          "$version_preflight" \
+          'CI manifest drift guard'
 
         assert_version_contract "$manifest" agent-daemon.cabal current
         future_version_dir="$(mktemp -d)"
