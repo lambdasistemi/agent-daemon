@@ -105,4 +105,8 @@ the canonical main checkout.
 - Correction slice: first observe the Playwright layout regression fail on the
   clipped hierarchy; after the minimal repair, run it at all three viewports,
   the focused UI checks, and `./gate.sh`. Refresh the real tailnet preview and
-  its screenshots at the corrected exact head before final hosted CI.
+  its screenshots at the corrected exact head before final hosted CI. For the
+  hardened self-hosted runner only, reproduce the Chromium zygote SIGTRAP
+  under its exact system-call filter, then add only `--no-zygote` to the
+  Playwright launch with a concise rationale. Do not weaken runner hardening
+  or alter application behavior.

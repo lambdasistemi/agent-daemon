@@ -55,23 +55,28 @@ Trailer: `Tasks: T9210, T9211, T9212`
 
 ## Correction slice — visible command-deck layout
 
-- [ ] T9214 Add a failing browser-layout regression that serves the built UI
+- [X] T9214 Add a failing browser-layout regression that serves the built UI
   with an attached session and proves all eleven deck controls intersect the
   visible viewport and win centre-point hit testing at 390×844, 768×1024, and
   1024×768.
-- [ ] T9215 Make the minimal render hierarchy/CSS repair that allocates the
+- [X] T9215 Make the minimal render hierarchy/CSS repair that allocates the
   deck its visible workspace row while preserving terminal sizing, safe areas,
   44×44 targets, control order, and every existing input semantic.
-- [ ] T9216 Re-run the focused browser/UI proof and the full gate; navigator
+- [X] T9216 Re-run the focused browser/UI proof and the full gate; navigator
   independently reproduces visibility/hit testing and records fresh three-
   viewport screenshots for the corrected exact branch head.
+- [X] T9217 Reproduce the Chromium zygote SIGTRAP under the runner's exact
+  system-call filter, then add only `--no-zygote` to the Playwright harness
+  with a concise runner-hardening rationale; prove hardened-unit GREEN,
+  focused UI checks, and `./gate.sh` without changing application behavior or
+  runner hardening.
 
 Commit: `fix: keep touch command deck visible`
-Trailer: `Tasks: T9214, T9215, T9216`
+Trailer: `Tasks: T9214, T9215, T9216, T9217`
 
 ## Final verification and handoff — orchestrator owned
 
-- [ ] T9213 Independently review every accepted diff and commit/task linkage,
+- [X] T9213 Independently review every accepted diff and commit/task linkage,
   run the fresh full gate, audit PR labels/assignee/links/body, refresh the
   corrected preview/evidence, and collect exact hosted check results without
   merging.
