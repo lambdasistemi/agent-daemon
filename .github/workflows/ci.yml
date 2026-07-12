@@ -25,10 +25,37 @@ jobs:
         run: |
           manifest_version="$(
             nix eval --raw --impure --expr \
-              '(builtins.fromJSON (builtins.readFile ./.release-please-manifest.json))."."'
+              'let
+                manifest =
+                  (builtins.fromJSON
+                    (builtins.readFile ./.release-please-manifest.json)).".";
+              in
+                if builtins.isString manifest
+                  && builtins.match
+                    "(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)"
+                    manifest != null
+                then manifest
+                else builtins.throw
+                  "manifest version is not a strict Cabal version"'
           )"
-          cabal_version="$(awk '$1 == "version:" { print $2; exit }' agent-daemon.cabal)"
-          test -n "$cabal_version"
+          cabal_version="$(
+            nix eval --raw --impure --expr \
+              'let
+                lines = builtins.filter builtins.isString
+                  (builtins.split "\n"
+                    (builtins.readFile ./agent-daemon.cabal));
+                matches = builtins.filter (match: match != null)
+                  (map
+                    (line: builtins.match
+                      "version:[[:space:]]+((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*))[[:space:]]*"
+                      line)
+                    lines);
+              in
+                if builtins.length matches == 1
+                then builtins.elemAt (builtins.elemAt matches 0) 0
+                else builtins.throw
+                  "Cabal file must contain exactly one strict version field"'
+          )"
           test "$cabal_version" = "$manifest_version"
       - name: Run flake checks
         run: nix flake check --no-eval-cache

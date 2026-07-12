@@ -22,6 +22,13 @@ and a CI drift check. Convert the Darwin publisher into a reusable/recoverable
 tag publisher. Its bundle must mirror Homebrew's installed layout and smoke
 before upload; existing releases must fail closed rather than be deleted.
 
+## Slice 3 — runner-hermetic version preflight
+
+The hosted/self-hosted CI boundary provides `nix` but does not promise common
+host utilities such as `awk` before entering the flake environment. Parse both
+manifest and Cabal versions through `nix eval`, and make the flake-owned
+workflow contract reject host-tool leakage in this preflight step.
+
 ## Publication sequence
 
 1. Merge this issue PR with green CI.
