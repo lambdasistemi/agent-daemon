@@ -16,6 +16,10 @@
 
 - [X] T010-S3 Remove the CI drift check's dependency on host `awk` and enforce the boundary.
 
+## Slice 4 — preserve feature minor releases
+
+- [ ] T011-S4 Remove pre-1.0 feature-to-patch conversion and enforce the release policy.
+
 ## Publication
 
 - [ ] P007 Merge the green implementation PR and verify Pages.

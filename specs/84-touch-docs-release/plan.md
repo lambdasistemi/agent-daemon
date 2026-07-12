@@ -29,6 +29,14 @@ host utilities such as `awk` before entering the flake environment. Parse both
 manifest and Cabal versions through `nix eval`, and make the flake-owned
 workflow contract reject host-tool leakage in this preflight step.
 
+## Slice 4 — preserve feature minor releases
+
+The first live release-please run proposed `0.1.2`, proving that
+`bump-patch-for-minor-pre-major` converts pre-1.0 feature minors into patches.
+Remove that conversion policy while retaining the breaking-change
+`bump-minor-pre-major` rule, and enforce the distinction in the flake-owned
+release contract. Release PR #86 must regenerate as `0.2.0`.
+
 ## Publication sequence
 
 1. Merge this issue PR with green CI.
