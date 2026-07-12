@@ -11,13 +11,13 @@ RED → navigator review → GREEN; each accepted commit retains its exact
 
 ## Slice 1 — Pure input model and authoritative tests
 
-- [ ] T9201 Define the dependency-free logical key, latch, sequence, cursor
+- [X] T9201 Define the dependency-free logical key, latch, sequence, cursor
   mode, and bounded-repeat model.
-- [ ] T9202 Add Node tests for Ctrl-C, Shift-Tab, Alt text, Tmux-plus-arrow,
+- [X] T9202 Add Node tests for Ctrl-C, Shift-Tab, Alt text, Tmux-plus-arrow,
   cancellation/one-shot consumption, both cursor modes, and repeat stop paths.
-- [ ] T9203 Expose the model through `bootstrap.js` and run the focused test in
+- [X] T9203 Expose the model through `bootstrap.js` and run the focused test in
   the authoritative Nix UI check without adding a dependency or pin.
-- [ ] T9204 Run focused tests, `nix run --quiet .#ui`, and `./gate.sh`.
+- [X] T9204 Run focused tests, `nix run --quiet .#ui`, and `./gate.sh`.
 
 Commit: `feat: model terminal command deck input`  
 Trailer: `Tasks: T9201, T9202, T9203, T9204`
