@@ -8,9 +8,9 @@
 
 ## Slice 2 — deterministic release automation
 
-- [ ] T004-S2 Add manifest-driven release creation and Cabal-version synchronization.
-- [ ] T005-S2 Repair the Darwin bundle layout, release safety, and Homebrew smoke.
-- [ ] T006-S2 Add CI version drift and workflow validation coverage.
+- [X] T004-S2 Add manifest-driven release creation and Cabal-version synchronization.
+- [X] T005-S2 Repair the Darwin bundle layout, release safety, and Homebrew smoke.
+- [X] T006-S2 Add CI version drift and workflow validation coverage.
 
 ## Publication
 

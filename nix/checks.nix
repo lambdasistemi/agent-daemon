@@ -72,11 +72,24 @@ let
     };
 
     workflow-lint = {
-      runtimeInputs = [ pkgs.actionlint pkgs.shellcheck pkgs.yq-go ];
+      runtimeInputs = [
+        pkgs.actionlint
+        pkgs.coreutils
+        pkgs.gawk
+        pkgs.gnugrep
+        pkgs.jq
+        pkgs.shellcheck
+        pkgs.yq-go
+      ];
       text = ''
         actionlint -config-file .github/actionlint.yaml .github/workflows/*.yml
 
         workflow=.github/workflows/ci.yml
+        darwin_workflow=.github/workflows/darwin-release.yml
+        release_workflow=.github/workflows/release.yml
+        sync_workflow=.github/workflows/sync-cabal-version.yml
+        manifest=.release-please-manifest.json
+        release_config=release-please-config.json
 
         assert_eq() {
           local actual="$1"
@@ -101,6 +114,23 @@ let
               "$workflow"
           )"
           assert_eq "$count" 1 "$job runs $command"
+        }
+
+        assert_version_contract() {
+          local manifest_path="$1"
+          local cabal_path="$2"
+          local label="$3"
+          local manifest_value
+          local cabal_value
+
+          manifest_value="$(
+            jq -er '."." | select(
+              type == "string" and
+              test("^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$")
+            )' "$manifest_path"
+          )"
+          cabal_value="$(awk '$1 == "version:" { print $2; exit }' "$cabal_path")"
+          assert_eq "$cabal_value" "$manifest_value" "$label Cabal/manifest equality"
         }
 
         assert_eq \
@@ -158,7 +188,7 @@ let
 
         assert_eq \
           "$(yq -r '.on | keys | sort | join(",")' "$workflow")" \
-          'pull_request,push' 'workflow triggers'
+          'pull_request,push,workflow_dispatch' 'workflow triggers'
         assert_eq \
           "$(yq -r '.on.push | keys | sort | join(",")' "$workflow")" \
           'branches' 'push trigger keys'
@@ -197,6 +227,142 @@ let
         assert_command workflow-lint 'nix run --quiet .#workflow-lint'
         assert_command dev-shell \
           'nix develop --quiet -c cabal build all -O0'
+
+        assert_eq \
+          "$(yq -r \
+            '[.jobs["build-gate"].steps[] | select(.name == "Cabal version matches manifest")] | length' \
+            "$workflow")" \
+          1 'CI manifest drift guard count'
+
+        assert_version_contract "$manifest" agent-daemon.cabal current
+        future_version_dir="$(mktemp -d)"
+        trap 'rm -rf "$future_version_dir"' EXIT
+        printf '{".":"0.2.0"}\n' > "$future_version_dir/manifest.json"
+        printf 'name: future-version-proof\nversion: 0.2.0\n' \
+          > "$future_version_dir/future.cabal"
+        assert_version_contract \
+          "$future_version_dir/manifest.json" \
+          "$future_version_dir/future.cabal" \
+          future-0.2.0
+        assert_eq \
+          "$(jq -r '.packages["."]."release-type"' "$release_config")" \
+          simple 'release type'
+        assert_eq \
+          "$(jq -r '.packages["."]."bump-minor-pre-major"' "$release_config")" \
+          true 'pre-major minor bump'
+        assert_eq \
+          "$(jq -r '.packages["."]."bump-patch-for-minor-pre-major"' "$release_config")" \
+          true 'pre-major patch bump'
+        assert_eq \
+          "$(jq -r 'has("skip-labeling")' "$release_config")" \
+          false 'release config omits unsupported skip-labeling property'
+
+        assert_eq \
+          "$(yq -r '.on | keys | sort | join(",")' "$release_workflow")" \
+          'push,workflow_dispatch' 'release workflow triggers'
+        assert_eq \
+          "$(yq -r \
+            '[.jobs."release-please".steps[] | select(.uses == "actions/create-github-app-token@v3")] | length' \
+            "$release_workflow")" \
+          1 'release token action version'
+        assert_eq \
+          "$(yq -r \
+            '.jobs."release-please".steps[] | select(.uses == "actions/create-github-app-token@v3") | .with.repositories' \
+            "$release_workflow")" \
+          tmux-ws 'release token repository scope'
+        assert_eq \
+          "$(yq -r \
+            '.jobs."release-please".steps[] | select(.uses == "actions/create-github-app-token@v3") | .with | with_entries(select(.key | test("^permission-"))) | to_entries | sort_by(.key) | map(.key + "=" + .value) | join(",")' \
+            "$release_workflow")" \
+          'permission-contents=write,permission-pull-requests=write' \
+          'release token least-privilege permissions'
+        assert_eq \
+          "$(yq -r \
+            '[.jobs."release-please".steps[] | select(.uses == "googleapis/release-please-action@v4")] | length' \
+            "$release_workflow")" \
+          1 'release-please action version'
+        assert_eq \
+          "$(yq -r \
+            '.jobs."release-please".steps[] | select(.uses == "googleapis/release-please-action@v4") | .with."skip-labeling"' \
+            "$release_workflow")" \
+          true 'release-please action skips labels'
+        assert_eq \
+          "$(yq -r '.jobs."publish-darwin".uses' "$release_workflow")" \
+          './.github/workflows/darwin-release.yml' 'release calls Darwin publisher'
+
+        assert_eq \
+          "$(yq -r '.on | keys | sort | join(",")' "$darwin_workflow")" \
+          'workflow_call,workflow_dispatch' 'Darwin recovery triggers'
+        assert_eq \
+          "$(yq -r '.on.workflow_call.inputs.tag.required' "$darwin_workflow")" \
+          true 'called Darwin tag is required'
+        assert_eq \
+          "$(yq -r '.on.workflow_dispatch.inputs.tag.required' "$darwin_workflow")" \
+          true 'manual Darwin tag is required'
+        assert_eq \
+          "$(yq -r \
+            '[.jobs."build-and-release".steps[] | select(.uses == "actions/create-github-app-token@v3")] | length' \
+            "$darwin_workflow")" \
+          2 'Darwin token action versions'
+        assert_eq \
+          "$(yq -r \
+            '[.jobs."build-and-release".steps[] | select(.uses == "actions/create-github-app-token@v3") | .with.repositories] | sort | join(",")' \
+            "$darwin_workflow")" \
+          'homebrew-tap,tmux-ws' 'Darwin token repository scopes'
+        assert_eq \
+          "$(yq -r \
+            '[.jobs."build-and-release".steps[] | select(.uses == "actions/create-github-app-token@v3") | .with | with_entries(select(.key | test("^permission-"))) | to_entries | sort_by(.key) | map(.key + "=" + .value) | join(",")] | join(";")' \
+            "$darwin_workflow")" \
+          'permission-contents=write;permission-contents=write' \
+          'Darwin tokens least-privilege permissions'
+
+        if grep -Fq 'gh release delete' "$darwin_workflow"; then
+          echo 'workflow contract: destructive release deletion is forbidden' >&2
+          exit 1
+        fi
+        if grep -Fq 'gh release create' "$darwin_workflow"; then
+          echo 'workflow contract: Darwin publisher must use an existing release' >&2
+          exit 1
+        fi
+        if grep -Fq 'agent-daemon --help || true' "$darwin_workflow"; then
+          echo 'workflow contract: ignored binary smoke is forbidden' >&2
+          exit 1
+        fi
+        grep -Fq 'gh release view' "$darwin_workflow"
+        # Assert literal workflow source; expansion would make this weaker.
+        # shellcheck disable=SC2016
+        grep -Fq 'gh release upload "$TAG" "$ASSET" --clobber' "$darwin_workflow"
+        grep -Fq 'libexec/lib' "$darwin_workflow"
+        # Assert literal workflow source; expansion would make this weaker.
+        # shellcheck disable=SC2016
+        grep -Fq 'codesign --force --sign - "$binary"' "$darwin_workflow"
+        grep -Fq 'unstaged Nix dependency remains' "$darwin_workflow"
+        # Assert literal workflow source; expansion would make this weaker.
+        # shellcheck disable=SC2016
+        grep -Fq '"$binary" --help' "$darwin_workflow"
+        grep -Fq 'brew trust lambdasistemi/tap' "$darwin_workflow"
+        grep -Fq 'agent-daemon --help' "$darwin_workflow"
+
+        assert_eq \
+          "$(yq -r \
+            '[.jobs.sync.steps[] | select(.uses == "actions/create-github-app-token@v3")] | length' \
+            "$sync_workflow")" \
+          1 'Cabal sync token action version'
+        assert_eq \
+          "$(yq -r \
+            '.jobs.sync.steps[] | select(.uses == "actions/create-github-app-token@v3") | .with.repositories' \
+            "$sync_workflow")" \
+          tmux-ws 'Cabal sync token repository scope'
+        assert_eq \
+          "$(yq -r \
+            '.jobs.sync.steps[] | select(.uses == "actions/create-github-app-token@v3") | .with | with_entries(select(.key | test("^permission-"))) | to_entries | sort_by(.key) | map(.key + "=" + .value) | join(",")' \
+            "$sync_workflow")" \
+          'permission-contents=write' \
+          'Cabal sync token least-privilege permissions'
+        grep -Fq "startsWith(github.head_ref, 'release-please--')" "$sync_workflow"
+        # Assert literal workflow source; expansion would make this weaker.
+        # shellcheck disable=SC2016
+        grep -Fq 'git push origin "HEAD:''${GITHUB_HEAD_REF}"' "$sync_workflow"
       '';
     };
   };
