@@ -54,7 +54,8 @@ never schedule a repeat.
   or dismiss the tablet keyboard merely by operating a control.
 - **FR-006:** Every deck target is at least 44 by 44 CSS pixels on touch
   layouts, has dark/light active and focus states, honours safe areas, and is
-  never horizontally clipped at 390×844, 768×1024, or 1024×768.
+  wholly visible in the viewport—never clipped by an ancestor or covered by
+  the terminal or workspace dock—at 390×844, 768×1024, or 1024×768.
 - **FR-007:** A pure input model has automated tests for encoding, latch
   consumption/cancellation, cursor modes, and repeat lifecycle. The
   authoritative Nix UI check executes those tests.
@@ -68,7 +69,8 @@ never schedule a repeat.
 - Touching each control sends the documented bytes once; untouched native text
   entry remains plain xterm input.
 - Browser assertions report no horizontal overflow, every deck target is at
-  least 44×44 CSS pixels, and the deck remains reachable at every viewport.
+  least 44×44 CSS pixels, intersects the visible viewport, and wins a
+  center-point hit test rather than being clipped or covered at every viewport.
 - The focused model tests, `nix flake check --no-eval-cache`,
   `nix develop --quiet -c just ci`, and `./gate.sh` pass.
 

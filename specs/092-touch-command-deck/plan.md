@@ -55,6 +55,26 @@ sizes, overflow, latch semantics, cursor modes, repeat cleanup, and no
 console/runtime errors. Publish the hosted preview URL and link all evidence
 from the PR.
 
+### Correction slice — visible deck layout regression
+
+The accepted screenshot evidence found a hierarchy bug: the deck is nested in
+`.terminal-wrap`, whose `overflow: hidden` clips the controls while the
+workspace grid can allocate rows only to direct children. First add a failing
+browser-layout regression. It must serve the built UI with an attached-session
+fixture, then at 390×844, 768×1024, and 1024×768 assert all eleven
+`[data-command-deck-control]` elements have 44×44-or-larger boxes that
+intersect the viewport and win a centre-point `elementFromPoint` hit test.
+That proves neither terminal clipping nor a fixed workspace dock covers them.
+
+Run the regression in the authoritative Linux UI check with Nix-provided
+Playwright and its browsers—no npm dependency, package-lock, or pin change.
+Then make the smallest render hierarchy/CSS correction: the terminal remains
+in the flexible workspace row and the deck becomes a direct workspace child in
+the allocated auto row. Preserve safe-area padding, target sizes, source
+order, xterm sizing, and all input semantics. The navigator must independently
+reproduce the test, inspect hit targets, and capture fresh screenshots at all
+three viewports before acceptance.
+
 ## Owned files
 
 - Slice 1: `ui/src/AgentDaemon/TerminalInput.mjs`,
@@ -65,6 +85,8 @@ from the PR.
   `ui/test/TerminalInput.test.mjs`, `ui/dist/index.css`, and
   `ui/dist/index.html` only for an asset cache token.
 - Slice 3: `README.md`, `docs/index.md`, and external evidence files only.
+- Correction slice: `ui/src/Main.purs`, `ui/dist/index.css`,
+  `ui/test/CommandDeckLayout.test.mjs`, and `nix/checks.nix` only.
 - Orchestrator: `specs/092-touch-command-deck/*`, `gate.sh`, PR metadata, and
   runtime protocol files.
 
@@ -80,3 +102,7 @@ the canonical main checkout.
 - Slice 3: fresh full gate, three browser viewports, hosted preview, PR-body
   evidence, task/commit audit, and exact hosted checks. The PR stays draft;
   finalization does not merge it.
+- Correction slice: first observe the Playwright layout regression fail on the
+  clipped hierarchy; after the minimal repair, run it at all three viewports,
+  the focused UI checks, and `./gate.sh`. Refresh the real tailnet preview and
+  its screenshots at the corrected exact head before final hosted CI.

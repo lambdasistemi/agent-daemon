@@ -53,8 +53,25 @@ Trailer: `Tasks: T9205, T9206, T9207, T9208, T9209`
 Commit: `docs: document touch terminal command deck`
 Trailer: `Tasks: T9210, T9211, T9212`
 
+## Correction slice — visible command-deck layout
+
+- [ ] T9214 Add a failing browser-layout regression that serves the built UI
+  with an attached session and proves all eleven deck controls intersect the
+  visible viewport and win centre-point hit testing at 390×844, 768×1024, and
+  1024×768.
+- [ ] T9215 Make the minimal render hierarchy/CSS repair that allocates the
+  deck its visible workspace row while preserving terminal sizing, safe areas,
+  44×44 targets, control order, and every existing input semantic.
+- [ ] T9216 Re-run the focused browser/UI proof and the full gate; navigator
+  independently reproduces visibility/hit testing and records fresh three-
+  viewport screenshots for the corrected exact branch head.
+
+Commit: `fix: keep touch command deck visible`
+Trailer: `Tasks: T9214, T9215, T9216`
+
 ## Final verification and handoff — orchestrator owned
 
-- [X] T9213 Independently review every accepted diff and commit/task linkage,
-  run the fresh full gate, audit PR labels/assignee/links/body, and collect
-  exact hosted check results without merging.
+- [ ] T9213 Independently review every accepted diff and commit/task linkage,
+  run the fresh full gate, audit PR labels/assignee/links/body, refresh the
+  corrected preview/evidence, and collect exact hosted check results without
+  merging.
