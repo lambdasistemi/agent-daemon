@@ -2,9 +2,9 @@
 
 ## Slice 1 — operator documentation
 
-- [ ] T001-S1 Document tablet controls, identity, close safety, and refresh/cache semantics.
-- [ ] T002-S1 Document reboot-persistent NixOS and Tailscale deployment.
-- [ ] T003-S1 Add system-aware light/dark documentation palettes and build the site.
+- [X] T001-S1 Document tablet controls, identity, close safety, and refresh/cache semantics.
+- [X] T002-S1 Document reboot-persistent NixOS and Tailscale deployment.
+- [X] T003-S1 Add system-aware light/dark documentation palettes and build the site.
 
 ## Slice 2 — deterministic release automation
 

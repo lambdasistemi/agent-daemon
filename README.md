@@ -36,15 +36,34 @@ applied.
 
 ## Browser Console
 
-Open the daemon URL in a browser to use the bundled SPA. It can stop tmux
-sessions, attach to the selected tmux session, disconnect, switch tmux windows,
-and refresh the session list.
+Open the daemon URL in a browser to use the bundled, touch-first SPA. A tablet
+operator can use it without a keyboard or mouse. The header always shows the
+selected **Session** and active **Window**, while the bottom action dock
+provides **Refresh**, **Terminal**, **Paste**, and **Settings**. These controls
+cover session/window selection, terminal keys and text selection, saved paste
+snippets, display preferences, and guarded destructive actions.
+
+Under **Settings**, **Close this pane** and **Close this window** first ask the
+server what closing the current tmux context would do. Review that preview and
+confirm in the sheet that follows. The server rejects the action if the tmux
+topology changes between preview and confirmation. Closing the final pane in
+the final window, or closing the final window, ends the session; otherwise the
+SPA reloads the surviving session/window state and reconnects the terminal.
+
+**Refresh** reloads the daemon's session and window registry inside the running
+SPA. It does not download a new copy of the application. To fetch the SPA again
+after an upgrade, reload the browser document. Daemon-served UI responses carry
+`no-store` cache headers, so Chrome is instructed not to retain an old UI.
 
 The GitHub Pages build is useful for public inspection and documentation, but
 browser control should come from the daemon-served SPA. Public origins such as
 GitHub Pages can be blocked by browser local-network protections when they try
 to call a Tailscale or localhost daemon.
 
-Destructive session actions require exact confirmation. The REST delete endpoint
-must be called as `DELETE /sessions/:sid?confirm=:sid`; the browser client
-requires typing the session id before enabling the final action.
+Ending a whole session remains a separate action and requires typing its exact
+session id before the final button is enabled.
+
+For unattended, reboot-persistent access, see the
+[NixOS deployment](https://lambdasistemi.github.io/tmux-ws/docs/deployment/)
+and [Tailscale Serve](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/)
+guides.

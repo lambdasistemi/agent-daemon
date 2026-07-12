@@ -21,20 +21,27 @@ enable **HTTPS Certificates**.
 Keep the daemon off the public network:
 
 ```bash
-agent-daemon --host 127.0.0.1 --port 8080 --base-dir /code
+agent-daemon --host 127.0.0.1 --port 8080 --base-dir /path/to/worktrees
 ```
 
 ### 3. Start Tailscale Serve
 
-Proxy HTTPS on port 8443 to the local HTTP server:
+Choose an HTTPS port and proxy it to the daemon's localhost port. The values
+below are generic examples:
 
 ```bash
 # Foreground (for testing):
 sudo tailscale serve --https 8443 http://127.0.0.1:8080
 
-# Background (persistent across reboots):
+# Background; tailscaled stores the route and restores it after reboot:
 sudo tailscale serve --bg --https 8443 http://127.0.0.1:8080
 ```
+
+Use the `--bg` form for an unattended deployment. It records the Serve route in
+Tailscale's node state, so the route returns when `tailscaled` restarts; a
+foreground command exists only for as-long-as-that-process testing. Enable both
+the daemon service and `tailscaled` at boot. You do not need a separate wrapper
+service that reruns `tailscale serve` on every boot.
 
 ### 4. Open the SPA
 
@@ -43,18 +50,18 @@ sudo tailscale serve --bg --https 8443 http://127.0.0.1:8080
 tailscale serve status
 
 # Should show:
-# https://<hostname>.tailnet-name.ts.net:8443 (tailnet only)
+# https://<host>.<tailnet>.ts.net:8443 (tailnet only)
 # |-- / proxy http://127.0.0.1:8080
 
 # Test HTTPS API access
-curl https://<hostname>.tailnet-name.ts.net:8443/sessions
+curl https://<host>.<tailnet>.ts.net:8443/sessions
 # → []
 ```
 
 Then open the same HTTPS origin in the browser:
 
 ```
-https://<hostname>.tailnet-name.ts.net:8443/
+https://<host>.<tailnet>.ts.net:8443/
 ```
 
 That page is the tmux-ws SPA served by the daemon through Tailscale. It is the
@@ -68,7 +75,7 @@ Browser (HTTPS)
     │
     ▼
 Tailscale Serve (TLS termination)
-    https://<hostname>.ts.net:8443
+    https://<host>.<tailnet>.ts.net:8443
     │
     ▼ (plain HTTP, localhost only)
 tmux-ws daemon
@@ -78,9 +85,10 @@ tmux-ws daemon
 tmux sessions + git worktrees
 ```
 
-- The browser loads the SPA from `https://<hostname>.ts.net:8443/`
+- The browser loads the SPA from `https://<host>.<tailnet>.ts.net:8443/`
 - The SPA calls REST endpoints on the same origin, such as `/sessions`
-- The browser connects to `wss://<hostname>.ts.net:8443/sessions/<id>/terminal`
+- The browser connects to
+  `wss://<host>.<tailnet>.ts.net:8443/sessions/<id>/terminal`
 - Tailscale terminates TLS and forwards to `ws://127.0.0.1:8080/...`
 - Only machines on your tailnet can reach the service
 - Certificates are Let's Encrypt, auto-renewed by Tailscale
@@ -98,7 +106,7 @@ If another dashboard needs to call tmux-ws directly, set the agent server URL
 to:
 
 ```
-https://<hostname>.tailnet-name.ts.net:8443
+https://<host>.<tailnet>.ts.net:8443
 ```
 
 This ensures both REST API calls and WebSocket connections use TLS,
@@ -111,3 +119,6 @@ tailscale serve status          # show current configuration
 tailscale serve reset           # remove all serve rules
 tailscale serve --bg --https 8443 http://127.0.0.1:8080   # add rule
 ```
+
+`tailscale serve status` is the reboot check: it should still show the HTTPS
+listener and localhost proxy before a tablet connects.
