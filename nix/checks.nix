@@ -61,13 +61,14 @@ let
     };
 
     ui = {
-      runtimeInputs = [ pkgs.purs-tidy-bin.purs-tidy-0_10_0 ];
+      runtimeInputs = [ pkgs.nodejs_22 pkgs.purs-tidy-bin.purs-tidy-0_10_0 ];
       text = ''
         test -d ${uiNodeModules}/node_modules
         test -e ${uiBuild}
         test -s ${uiBundle}/index.html
         test -s ${uiBundle}/index.js
         purs-tidy check 'ui/src/**/*.purs'
+        node --test ui/test/TerminalInput.test.mjs
       '';
     };
 
