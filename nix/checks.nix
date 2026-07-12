@@ -307,6 +307,44 @@ let
             "$release_workflow")" \
           true 'release-please action skips labels'
         assert_eq \
+          "$(yq -r '.jobs."release-please".outputs.release_created' "$release_workflow")" \
+          '$'"{{ steps.resolve.outputs.release_created }}" \
+          'release output resolves primary or recovered release'
+        assert_eq \
+          "$(yq -r '.jobs."release-please".outputs.tag_name' "$release_workflow")" \
+          '$'"{{ steps.resolve.outputs.tag_name }}" \
+          'release tag resolves primary or recovered release'
+        assert_eq \
+          "$(yq -r '.jobs."release-please".steps[] | select(.id == "recover") | .if' "$release_workflow")" \
+          '$'"{{ github.event_name == 'push' && steps.release.outputs.release_created != 'true' }}" \
+          'recovery only follows a non-release main push'
+        # shellcheck disable=SC2016
+        grep -Fq 'repos/''${GITHUB_REPOSITORY}/commits/''${GITHUB_SHA}/pulls' "$release_workflow"
+        grep -Fq 'release-please--branches--main' "$release_workflow"
+        grep -Fq '.user.login == "lambdasistemi-ci[bot]"' "$release_workflow"
+        grep -Fq '.base.ref == "main"' "$release_workflow"
+        grep -Fq 'lambdasistemi-ci[bot]' "$release_workflow"
+        # shellcheck disable=SC2016
+        grep -Fq 'git ls-remote --exit-code origin "refs/tags/$tag"' "$release_workflow"
+        # shellcheck disable=SC2016
+        grep -Fq 'repos/''${GITHUB_REPOSITORY}/releases/tags/$tag' "$release_workflow"
+        grep -Fq 'release state conflict for %s' "$release_workflow"
+        grep -Fq 'release metadata mismatch: generated PR title' "$release_workflow"
+        grep -Fq 'release metadata mismatch: Cabal version' "$release_workflow"
+        grep -Fq 'release metadata mismatch: changelog section' "$release_workflow"
+        grep -Fq 'ambiguous generated release PRs for pushed commit' "$release_workflow"
+        grep -Fq 'write_recovery_outputs' "$release_workflow"
+        grep -Fq 'Record release recovery start time' "$release_workflow"
+        grep -Fq 'RECOVERY_STARTED_AT' "$release_workflow"
+        grep -Fq 'gh pr list --state open --head release-please--branches--main' "$release_workflow"
+        # shellcheck disable=SC2016
+        grep -Fq 'gh pr close "$number" --delete-branch --repo "$GITHUB_REPOSITORY"' "$release_workflow"
+        grep -Fq 'warning: could not list false release PRs for cleanup' "$release_workflow"
+        grep -Fq 'warning: could not close false release PR %s' "$release_workflow"
+        # Assert literal workflow source; expansion would make this weaker.
+        # shellcheck disable=SC2016
+        grep -Fq 'gh release create "$tag" --target "$GITHUB_SHA"' "$release_workflow"
+        assert_eq \
           "$(yq -r '.jobs."publish-darwin".uses' "$release_workflow")" \
           './.github/workflows/darwin-release.yml' 'release calls Darwin publisher'
 
@@ -349,6 +387,13 @@ let
           exit 1
         fi
         grep -Fq 'gh release view' "$darwin_workflow"
+        # A copied dylib reports its own @rpath ID in `otool -L`; it is not
+        # an unresolved dependency. The executable and every other @ name
+        # must continue through the fatal branch.
+        # shellcheck disable=SC2016
+        grep -Fq 'test "$target" != "$binary"' "$darwin_workflow"
+        # shellcheck disable=SC2016
+        grep -Fq '@rpath/$(basename "$target")' "$darwin_workflow"
         # Assert literal workflow source; expansion would make this weaker.
         # shellcheck disable=SC2016
         grep -Fq 'gh release upload "$TAG" "$ASSET" --clobber' "$darwin_workflow"

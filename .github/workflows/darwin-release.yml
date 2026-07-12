@@ -98,6 +98,14 @@ jobs:
             while IFS= read -r library; do
               case "$library" in
                 /usr/lib/*|/System/*) continue ;;
+              esac
+
+              if test "$target" != "$binary" && \
+                test "$library" = "@rpath/$(basename "$target")"; then
+                continue
+              fi
+
+              case "$library" in
                 @*) printf 'unresolved install name in %s: %s\n' "$target" "$library" >&2; exit 1 ;;
               esac
 
