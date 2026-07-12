@@ -28,6 +28,8 @@ writing model output to the existing socket, intercepting native keys only
 while latches are armed, focus-preserving pointer handling, and bounded arrow
 repeat cleanup. PureScript owns rendered latch state and accessible controls;
 the FFI callback clears visual state when a native key consumes latches.
+The existing Node model test also owns a pure native-key adapter proof: an
+armed native key is consumed once, and the next unarmed key remains plain.
 
 ## Slices
 
@@ -57,9 +59,11 @@ from the PR.
 
 - Slice 1: `ui/src/AgentDaemon/TerminalInput.mjs`,
   `ui/test/TerminalInput.test.mjs`, `ui/src/bootstrap.js`, `nix/checks.nix`.
-- Slice 2: `ui/src/AgentDaemon/FFI/Terminal.purs`,
+- Slice 2: `ui/src/AgentDaemon/TerminalInput.mjs`,
+  `ui/src/AgentDaemon/FFI/Terminal.purs`,
   `ui/src/AgentDaemon/FFI/Terminal.js`, `ui/src/Main.purs`,
-  `ui/dist/index.css`, and `ui/dist/index.html` only for an asset cache token.
+  `ui/test/TerminalInput.test.mjs`, `ui/dist/index.css`, and
+  `ui/dist/index.html` only for an asset cache token.
 - Slice 3: `README.md`, `docs/index.md`, and external evidence files only.
 - Orchestrator: `specs/092-touch-command-deck/*`, `gate.sh`, PR metadata, and
   runtime protocol files.

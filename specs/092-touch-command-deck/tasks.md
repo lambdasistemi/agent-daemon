@@ -24,8 +24,10 @@ Trailer: `Tasks: T9201, T9202, T9203, T9204`
 
 ## Slice 2 — xterm integration and responsive command deck
 
-- [ ] T9205 Extend the typed xterm FFI for logical command-deck input, armed
-  native-key handling, public cursor-mode selection, and repeat cleanup.
+- [ ] T9205 Extend the pure model and typed xterm FFI for logical command-deck
+  input, armed native-key handling, public cursor-mode selection, and repeat
+  cleanup; add a RED/GREEN Node proof that native input consumes an armed latch
+  once and leaves the following unarmed key plain.
 - [ ] T9206 Render accessible, cancellable Ctrl/Alt/Shift/Tmux latches and
   Esc/Tab/arrows/Enter controls that consume latches exactly once.
 - [ ] T9207 Preserve terminal/native-keyboard focus while operating controls;
