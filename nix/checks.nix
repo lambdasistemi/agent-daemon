@@ -61,7 +61,9 @@ let
     };
 
     ui = {
-      runtimeInputs = [ pkgs.nodejs_22 pkgs.purs-tidy-bin.purs-tidy-0_10_0 ];
+      runtimeInputs = [ pkgs.nodejs_22 pkgs.purs-tidy-bin.purs-tidy-0_10_0 ]
+        ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux
+        [ pkgs.playwright-test ];
       text = ''
         test -d ${uiNodeModules}/node_modules
         test -e ${uiBuild}
@@ -69,6 +71,13 @@ let
         test -s ${uiBundle}/index.js
         purs-tidy check 'ui/src/**/*.purs'
         node --test ui/test/TerminalInput.test.mjs
+        if [[ "$(uname)" == Linux ]]; then
+          export UI_BUNDLE=${uiBundle}
+          export NODE_PATH=${pkgs.playwright-test}/lib/node_modules
+          export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+          export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+          node --test ui/test/CommandDeckLayout.test.mjs
+        fi
       '';
     };
 

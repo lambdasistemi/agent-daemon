@@ -722,8 +722,8 @@ renderMain state =
             [ HH.div
                 [ HP.id "terminal" ]
                 []
-            , renderCommandDeck state
             ]
+        , renderCommandDeck state
         ]
     ]
 
