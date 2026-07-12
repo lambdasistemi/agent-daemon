@@ -1,6 +1,6 @@
 # Implementation Plan: Touch terminal command deck
 
-**Branch:** `feat/92-touch-command-deck`  
+**Branch:** `feat/92-touch-command-deck`
 **Draft PR:** [#93](https://github.com/lambdasistemi/tmux-ws/pull/93)
 
 ## Technical context
