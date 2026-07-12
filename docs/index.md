@@ -35,6 +35,45 @@ The persistent action dock at the bottom contains four touch targets:
 Swiping the terminal scrolls the current pane. The **Terminal** menu's **Live**
 action returns from tmux copy mode to live output.
 
+### Terminal command deck
+
+While a terminal is attached, a compact **command deck** sits below the terminal
+output. It is a touch surface for the control keys that tmux and interactive
+TUIs need — not a replacement alphanumeric keyboard. Type text with the tablet's
+own keyboard; use the deck for the keys that keyboard cannot send. The deck is
+present only while a session is attached.
+
+It has eleven controls: **Esc**, **Tab**, **Ctrl**, **Alt**, **Shift**,
+**Tmux**, **Left**, **Up**, **Down**, **Right**, and **Enter**. `Esc`, `Tab`,
+and `Enter` are sent immediately; the arrows move the cursor; `Ctrl`, `Alt`,
+`Shift`, and `Tmux` are one-shot latches.
+
+**One-shot latches.** Tapping `Ctrl`, `Alt`, `Shift`, or `Tmux` arms a single
+modifier. The armed state is visible and reported truthfully through
+`aria-pressed`. The latch applies to the very next key and then disarms itself;
+tapping an armed latch again cancels it, sending nothing and leaving the next
+key unmodified. A latch also composes with the **next key typed on the tablet's
+native keyboard** — arm `Ctrl` and press `c` to send Ctrl-C once, after which a
+plain `c` remains plain. Each armed latch is consumed exactly once. Typical
+combinations: `Ctrl`+`c` (Ctrl-C), `Shift`+`Tab` (back-tab), `Alt`+letter
+(Alt/Meta-prefixed input), and `Tmux`+arrow.
+
+**Tmux prefix.** `Tmux` is a literal tmux **Ctrl-B** prefix. It is one-shot and
+composes with the next accessory, arrow, or native key, so any tmux binding is
+reachable by touch. It is a fixed prefix, not a remappable one; the Terminal
+menu's `Ctrl-b` and `Ctrl-b :` shortcuts remain for compatibility.
+
+**Arrows and cursor mode.** The arrow controls honor xterm's
+application-cursor-keys mode, so full-screen programs receive the arrow encoding
+they expect. Press and hold an arrow to repeat it: the repeat is bounded and
+stops on release, on pointer cancel or leave, and when the terminal loses focus
+or detaches, so a held arrow never runs away.
+
+**Focus.** Operating the deck preserves terminal focus and does not dismiss the
+tablet keyboard, so you can move freely between typing text and tapping deck
+keys. With 44×44 CSS-pixel targets and dark/light states, the deck makes tmux
+and TUIs fully operable on a tablet with no hardware keyboard.
+
 ### Close the current pane or window
 
 Open **Settings** and tap **Close this pane** or **Close this window**. This is

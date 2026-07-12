@@ -19,7 +19,7 @@ RED → navigator review → GREEN; each accepted commit retains its exact
   the authoritative Nix UI check without adding a dependency or pin.
 - [X] T9204 Run focused tests, `nix run --quiet .#ui`, and `./gate.sh`.
 
-Commit: `feat: model terminal command deck input`  
+Commit: `feat: model terminal command deck input`
 Trailer: `Tasks: T9201, T9202, T9203, T9204`
 
 ## Slice 2 — xterm integration and responsive command deck
@@ -37,24 +37,24 @@ Trailer: `Tasks: T9201, T9202, T9203, T9204`
 - [X] T9209 Run focused model/UI checks and `./gate.sh`; record live sequence
   smoke evidence in WIP.
 
-Commit: `feat: add touch terminal command deck`  
+Commit: `feat: add touch terminal command deck`
 Trailer: `Tasks: T9205, T9206, T9207, T9208, T9209`
 
 ## Slice 3 — Operator documentation and evidence
 
-- [ ] T9210 Document command-deck controls, modifier cancellation/consumption,
+- [X] T9210 Document command-deck controls, modifier cancellation/consumption,
   Tmux prefix, native-keyboard composition, cursor mode, and touch-only TUI use.
-- [ ] T9211 Capture browser evidence at 390×844, 768×1024, and 1024×768 for
+- [X] T9211 Capture browser evidence at 390×844, 768×1024, and 1024×768 for
   reachability, overflow, target size, latch semantics, repeat cleanup, and
   console/runtime-error absence.
-- [ ] T9212 Link the live PR preview and durable evidence from the draft PR,
+- [X] T9212 Link the live PR preview and durable evidence from the draft PR,
   then re-run the full local gate.
 
-Commit: `docs: document touch terminal command deck`  
+Commit: `docs: document touch terminal command deck`
 Trailer: `Tasks: T9210, T9211, T9212`
 
 ## Final verification and handoff — orchestrator owned
 
-- [ ] T9213 Independently review every accepted diff and commit/task linkage,
+- [X] T9213 Independently review every accepted diff and commit/task linkage,
   run the fresh full gate, audit PR labels/assignee/links/body, and collect
   exact hosted check results without merging.

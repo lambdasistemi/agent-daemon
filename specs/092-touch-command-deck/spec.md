@@ -1,7 +1,7 @@
 # Feature Specification: Touch terminal command deck
 
-**Issue:** [#92](https://github.com/lambdasistemi/tmux-ws/issues/92)  
-**Parent:** [#80](https://github.com/lambdasistemi/tmux-ws/issues/80)  
+**Issue:** [#92](https://github.com/lambdasistemi/tmux-ws/issues/92)
+**Parent:** [#80](https://github.com/lambdasistemi/tmux-ws/issues/80)
 **Priority:** P1
 
 ## P1 user story

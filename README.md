@@ -67,3 +67,50 @@ For unattended, reboot-persistent access, see the
 [NixOS deployment](https://lambdasistemi.github.io/tmux-ws/docs/deployment/)
 and [Tailscale Serve](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/)
 guides.
+
+## Terminal command deck
+
+When a terminal is attached, a compact **command deck** appears below the
+terminal. It is a touch surface for the keys tmux and interactive TUIs need,
+not a full on-screen alphanumeric keyboard: type text with the tablet's own
+keyboard and reach for the deck for the keys that keyboard lacks. The deck is
+shown only while a session is attached.
+
+The deck has eleven controls: **Esc**, **Tab**, **Ctrl**, **Alt**, **Shift**,
+**Tmux**, **Left**, **Up**, **Down**, **Right**, and **Enter**. `Esc`, `Tab`,
+and `Enter` are sent immediately, the arrows move the cursor, and `Ctrl`,
+`Alt`, `Shift`, and `Tmux` are one-shot latches.
+
+### One-shot latches
+
+**Ctrl**, **Alt**, **Shift**, and **Tmux** arm a single modifier. A latch is
+visibly armed (reported truthfully through `aria-pressed`), applies to the very
+next key, and then disarms itself. Tap an armed latch again to cancel it; a
+cancelled latch sends nothing and leaves the next key unmodified. A latch also
+composes with the **next key you type on the tablet's own keyboard**: arm
+**Ctrl** and press `c` to send Ctrl-C once, and the following plain `c` stays
+plain. Each armed latch is consumed exactly once.
+
+Examples: **Ctrl** then `c` sends Ctrl-C; **Shift** then **Tab** sends a
+back-tab; **Alt** then a letter sends an Alt-prefixed (Meta) key; **Tmux** then
+an arrow sends the tmux prefix followed by the arrow.
+
+**Tmux** is a literal tmux **Ctrl-B** prefix. It composes with whatever comes
+next — an accessory key, an arrow, or a native-keyboard key — so any tmux
+binding is reachable by touch. It is a fixed prefix, not a remappable one. The
+older **Ctrl-b** / **Ctrl-b :** shortcuts in the Terminal menu remain as
+compatibility shortcuts.
+
+### Arrows, cursor mode, and focus
+
+The arrow controls follow xterm's application-cursor-keys mode, so full-screen
+programs such as vim, less, and tmux copy mode receive the arrow encoding they
+expect. Press and hold an arrow to repeat it; the repeat is bounded and stops as
+soon as you lift, cancel, or move off the control, or when the terminal loses
+focus or detaches, so a held arrow never runs away.
+
+Operating the deck preserves terminal focus and does not dismiss the tablet's
+native keyboard, so you can alternate between typing text and tapping deck keys.
+The whole deck is touch-operable with 44×44 CSS-pixel targets and dark/light
+states, which makes tmux and TUIs fully usable on a tablet without a hardware
+keyboard.
