@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   advanceArrowRepeat,
   beginArrowRepeat,
+  consumeNativeKey,
   createTerminalInput,
   dispatchKey,
+  suppressNativeKeyPhase,
   stopArrowRepeat,
   toggleLatch
 } from "../src/AgentDaemon/TerminalInput.mjs";
@@ -22,6 +24,37 @@ test("encodes Ctrl-C and consumes Ctrl once", () => {
     tmux: false
   });
   assert.equal(dispatchKey(first.latches, "c").data, "c");
+});
+
+test("consumes an armed native Ctrl-C once and leaves the following native c plain", () => {
+  const armed = toggleLatch(createTerminalInput(), "ctrl");
+  const first = consumeNativeKey(armed, "c");
+
+  assert.deepEqual(first, {
+    consumed: true,
+    data: "\x03",
+    latches: createTerminalInput()
+  });
+  assert.deepEqual(consumeNativeKey(first.latches, "c"), {
+    consumed: false,
+    data: "c",
+    latches: createTerminalInput()
+  });
+});
+
+test("suppresses only the remaining xterm phases of a consumed native key", () => {
+  assert.deepEqual(suppressNativeKeyPhase("c", "c", "keypress"), {
+    suppressed: true,
+    suppressedKey: "c"
+  });
+  assert.deepEqual(suppressNativeKeyPhase("c", "c", "keyup"), {
+    suppressed: true,
+    suppressedKey: null
+  });
+  assert.deepEqual(suppressNativeKeyPhase(null, "c", "keydown"), {
+    suppressed: false,
+    suppressedKey: null
+  });
 });
 
 test("encodes Shift-Tab", () => {

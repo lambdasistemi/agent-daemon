@@ -76,6 +76,104 @@ const sendTerminalData = (controller, data) => {
   }
 };
 
+const commandDeckKey = (key) => (key === "Escape" ? "Esc" : key);
+
+const hasCommandDeckLatch = (latches) => Object.values(latches).some(Boolean);
+
+const applicationCursorKeysMode = (controller) =>
+  Boolean(controller.term.modes && controller.term.modes.applicationCursorKeysMode);
+
+const clearCommandDeckRepeat = (controller) => {
+  if (controller.commandDeckRepeatTimer != null) {
+    window.clearTimeout(controller.commandDeckRepeatTimer);
+  }
+  controller.commandDeckRepeatTimer = null;
+  controller.commandDeckRepeat = null;
+  controller.commandDeckPointerId = null;
+};
+
+const notifyCommandDeckConsumption = (controller, consumed) => {
+  if (consumed) controller.callbacks.onCommandDeckConsumed();
+};
+
+const dispatchCommandDeckKey = (controller, key) => {
+  const input = globalThis.AgentTerminal.TerminalInput;
+  const consumed = hasCommandDeckLatch(controller.commandDeckLatches);
+  const result = input.dispatchKey(controller.commandDeckLatches, key, {
+    applicationCursorKeysMode: applicationCursorKeysMode(controller)
+  });
+  controller.commandDeckLatches = result.latches;
+  sendTerminalData(controller, result.data);
+  notifyCommandDeckConsumption(controller, consumed);
+};
+
+const scheduleCommandDeckRepeat = (controller, delayMs) => {
+  controller.commandDeckRepeatTimer = window.setTimeout(() => {
+    controller.commandDeckRepeatTimer = null;
+    const input = globalThis.AgentTerminal.TerminalInput;
+    const next = input.advanceArrowRepeat(controller.commandDeckRepeat);
+    controller.commandDeckRepeat = next.repeat;
+    if (next.decision.type === "none") return;
+    dispatchCommandDeckKey(controller, controller.commandDeckRepeatKey);
+    if (next.decision.type === "emit-and-schedule") {
+      scheduleCommandDeckRepeat(controller, next.decision.delayMs);
+    } else {
+      clearCommandDeckRepeat(controller);
+    }
+  }, delayMs);
+};
+
+const beginCommandDeckArrowRepeat = (controller, key, pointerId) => {
+  const input = globalThis.AgentTerminal.TerminalInput;
+  clearCommandDeckRepeat(controller);
+  dispatchCommandDeckKey(controller, key);
+  const next = input.beginArrowRepeat(key);
+  if (next.decision.type !== "schedule") return;
+  controller.commandDeckRepeat = next.repeat;
+  controller.commandDeckRepeatKey = key;
+  controller.commandDeckPointerId = pointerId;
+  scheduleCommandDeckRepeat(controller, next.decision.delayMs);
+};
+
+const commandDeckControl = (event) =>
+  event.target instanceof Element
+    ? event.target.closest("[data-command-deck-control]")
+    : null;
+
+const installCommandDeckHandling = (controller) => {
+  const stopRepeat = (event) => {
+    if (
+      controller.commandDeckPointerId != null &&
+      (!event || event.pointerId === controller.commandDeckPointerId)
+    ) {
+      clearCommandDeckRepeat(controller);
+    }
+  };
+
+  const onPointerDown = (event) => {
+    const control = commandDeckControl(event);
+    if (!control || !event.isPrimary) return;
+    event.preventDefault();
+    const key = control.dataset.commandDeckKey;
+    if (key) beginCommandDeckArrowRepeat(controller, key, event.pointerId);
+  };
+
+  const onClick = (event) => {
+    const control = commandDeckControl(event);
+    if (!control || event.detail !== 0) return;
+    const key = control.dataset.commandDeckKey;
+    if (key) dispatchCommandDeckKey(controller, key);
+  };
+
+  document.addEventListener("pointerdown", onPointerDown, true);
+  document.addEventListener("pointerup", stopRepeat, true);
+  document.addEventListener("pointercancel", stopRepeat, true);
+  document.addEventListener("pointerleave", stopRepeat, true);
+  document.addEventListener("click", onClick, true);
+  window.addEventListener("blur", stopRepeat);
+  controller.commandDeckListeners = { onClick, onPointerDown, stopRepeat };
+};
+
 const normalizePasteData = (value) =>
   String(value).replace(/\r\n/g, "\n").replace(/\n/g, "\r");
 
@@ -429,8 +527,43 @@ export const createTerminal = (theme) => (fontSize) => (callbacks) => () => {
     touchSelectionAnchor: null,
     touchSelectionStart: null,
     touchSelectionMoved: false,
+    commandDeckLatches: globalThis.AgentTerminal.TerminalInput.createTerminalInput(),
+    commandDeckListeners: null,
+    commandDeckPointerId: null,
+    commandDeckRepeat: null,
+    commandDeckRepeatKey: null,
+    commandDeckRepeatTimer: null,
+    suppressedNativeKey: null,
     callbacks
   };
+
+  term.attachCustomKeyEventHandler((event) => {
+    const input = globalThis.AgentTerminal.TerminalInput;
+    const key = commandDeckKey(event.key);
+    const phase = input.suppressNativeKeyPhase(
+      controller.suppressedNativeKey,
+      key,
+      event.type
+    );
+    if (phase.suppressed) {
+      controller.suppressedNativeKey = phase.suppressedKey;
+      return false;
+    }
+    if (event.type !== "keydown" || !hasCommandDeckLatch(controller.commandDeckLatches)) {
+      return true;
+    }
+    const result = input.consumeNativeKey(
+      controller.commandDeckLatches,
+      key,
+      { applicationCursorKeysMode: applicationCursorKeysMode(controller) }
+    );
+    if (!result.consumed) return true;
+    controller.commandDeckLatches = result.latches;
+    controller.suppressedNativeKey = key;
+    sendTerminalData(controller, result.data);
+    notifyCommandDeckConsumption(controller, true);
+    return false;
+  });
 
   term.onData((data) => {
     sendTerminalData(controller, data);
@@ -449,6 +582,7 @@ export const mountTerminal = (controller) => (elementId) => () => {
   controller.element = target;
   controller.term.open(target);
   installTouchScrolling(controller, target);
+  installCommandDeckHandling(controller);
   try {
     const xterm = globalThis.AgentTerminal;
     const webgl = new xterm.WebglAddon();
@@ -506,6 +640,8 @@ const openTerminalSocket = (controller, url, label) => {
 
   socket.onclose = () => {
     if (controller.socket !== socket) return;
+    clearCommandDeckRepeat(controller);
+    controller.suppressedNativeKey = null;
     controller.socket = null;
     controller.callbacks.onClose();
   };
@@ -527,6 +663,8 @@ export const replaceTerminalAfterDestructiveClose = (controller) => (url) => (la
 };
 
 export const disconnectTerminal = (controller) => () => {
+  clearCommandDeckRepeat(controller);
+  controller.suppressedNativeKey = null;
   if (!controller.socket) return;
   const socket = controller.socket;
   controller.socket = null;
@@ -536,6 +674,8 @@ export const disconnectTerminal = (controller) => () => {
 };
 
 export const abandonTerminal = (controller) => () => {
+  clearCommandDeckRepeat(controller);
+  controller.suppressedNativeKey = null;
   controller.socket = null;
 };
 
@@ -557,6 +697,14 @@ export const sendCtrlBCommand = (controller) => () => {
 
 export const sendText = (controller) => (text) => () => {
   sendTerminalData(controller, normalizePasteData(text));
+};
+
+export const sendCommandDeckKey = (controller) => (key) => () => {
+  dispatchCommandDeckKey(controller, key);
+};
+
+export const setCommandDeckLatches = (controller) => (ctrl) => (alt) => (shift) => (tmux) => () => {
+  controller.commandDeckLatches = { ctrl, alt, shift, tmux };
 };
 
 export const copySelectionImpl = (controller) => async () => {

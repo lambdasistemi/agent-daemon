@@ -47,6 +47,31 @@ type ReconnectNotice =
   , status :: String
   }
 
+type CommandDeckLatches =
+  { ctrl :: Boolean
+  , alt :: Boolean
+  , shift :: Boolean
+  , tmux :: Boolean
+  }
+
+emptyCommandDeckLatches :: CommandDeckLatches
+emptyCommandDeckLatches =
+  { ctrl: false
+  , alt: false
+  , shift: false
+  , tmux: false
+  }
+
+toggleCommandDeckLatch
+  :: CommandDeckLatches -> String -> CommandDeckLatches
+toggleCommandDeckLatch latches latch =
+  case latch of
+    "ctrl" -> latches { ctrl = not latches.ctrl }
+    "alt" -> latches { alt = not latches.alt }
+    "shift" -> latches { shift = not latches.shift }
+    "tmux" -> latches { tmux = not latches.tmux }
+    _ -> latches
+
 type State =
   { sessions :: Array Session
   , windows :: Array WindowInfo
@@ -76,6 +101,7 @@ type State =
   , endedNotice :: Maybe String
   , reconnectNotice :: Maybe ReconnectNotice
   , terminal :: Maybe Terminal.TerminalController
+  , commandDeckLatches :: CommandDeckLatches
   }
 
 data TerminalEvent
@@ -85,6 +111,7 @@ data TerminalEvent
   | TerminalLinkOpened
   | TerminalLinkBlocked
   | TerminalScrollGesture Int
+  | TerminalCommandDeckConsumed
 
 data Action
   = Initialize
@@ -102,6 +129,7 @@ data Action
   | SendCtrlB
   | SendCtrlBCommand
   | SendLive
+  | ToggleCommandDeckLatch String
   | CopyTerminalText
   | ToggleTerminalSelectionMode
   | TogglePasteMenu
@@ -161,6 +189,7 @@ appComponent = H.mkComponent
       , endedNotice: Nothing
       , reconnectNotice: Nothing
       , terminal: Nothing
+      , commandDeckLatches: emptyCommandDeckLatches
       }
   , render
   , eval: H.mkEval H.defaultEval
@@ -684,7 +713,7 @@ renderSettings state =
     ]
 
 renderMain :: State -> H.ComponentHTML Action Slots Aff
-renderMain _ =
+renderMain state =
   HH.main_
     [ HH.section
         [ cls "workspace" ]
@@ -693,9 +722,64 @@ renderMain _ =
             [ HH.div
                 [ HP.id "terminal" ]
                 []
+            , renderCommandDeck state
             ]
         ]
     ]
+
+renderCommandDeck :: State -> H.ComponentHTML Action Slots Aff
+renderCommandDeck state =
+  if state.attachedSession == "" then
+    HH.text ""
+  else
+    HH.div
+      [ cls "command-deck"
+      , HP.attr (HH.AttrName "aria-label") "Terminal command deck"
+      ]
+      [ commandDeckKey "Esc" "Esc"
+      , commandDeckKey "Tab" "Tab"
+      , commandDeckLatch state "ctrl" "Ctrl"
+      , commandDeckLatch state "alt" "Alt"
+      , commandDeckLatch state "shift" "Shift"
+      , commandDeckLatch state "tmux" "Tmux"
+      , commandDeckKey "ArrowLeft" "Left"
+      , commandDeckKey "ArrowUp" "Up"
+      , commandDeckKey "ArrowDown" "Down"
+      , commandDeckKey "ArrowRight" "Right"
+      , commandDeckKey "Enter" "Enter"
+      ]
+
+commandDeckKey :: String -> String -> H.ComponentHTML Action Slots Aff
+commandDeckKey key label =
+  HH.button
+    [ cls "command-deck-control command-deck-key"
+    , HP.attr (HH.AttrName "data-command-deck-control") ""
+    , HP.attr (HH.AttrName "data-command-deck-key") key
+    , HP.attr (HH.AttrName "aria-label") label
+    ]
+    [ HH.text label ]
+
+commandDeckLatch :: State -> String -> String -> H.ComponentHTML Action Slots Aff
+commandDeckLatch state latch label =
+  let
+    armed = case latch of
+      "ctrl" -> state.commandDeckLatches.ctrl
+      "alt" -> state.commandDeckLatches.alt
+      "shift" -> state.commandDeckLatches.shift
+      "tmux" -> state.commandDeckLatches.tmux
+      _ -> false
+  in
+    HH.button
+      [ cls
+          ( "command-deck-control command-deck-latch"
+              <> if armed then " armed" else ""
+          )
+      , HP.attr (HH.AttrName "data-command-deck-control") ""
+      , HP.attr (HH.AttrName "aria-label") label
+      , HP.attr (HH.AttrName "aria-pressed") (if armed then "true" else "false")
+      , HE.onClick \_ -> ToggleCommandDeckLatch latch
+      ]
+      [ HH.text label ]
 
 renderSessions :: State -> Array (H.ComponentHTML Action Slots Aff)
 renderSessions state =
@@ -870,6 +954,8 @@ handleAction = case _ of
           HS.notify listener (HandleTerminal TerminalLinkBlocked)
       , onScrollGesture: \lines ->
           HS.notify listener (HandleTerminal (TerminalScrollGesture lines))
+      , onCommandDeckConsumed:
+          HS.notify listener (HandleTerminal TerminalCommandDeckConsumed)
       }
     void $ H.subscribe emitter
     H.modify_ _
@@ -1038,6 +1124,16 @@ handleAction = case _ of
   SendLive ->
     returnAttachedSessionLive
 
+  ToggleCommandDeckLatch latch -> do
+    state <- H.get
+    let latches = toggleCommandDeckLatch state.commandDeckLatches latch
+    case state.terminal of
+      Nothing -> pure unit
+      Just terminal -> liftEffect $
+        Terminal.setCommandDeckLatches terminal latches.ctrl latches.alt latches.shift latches.tmux
+    H.modify_ _ { commandDeckLatches = latches }
+    syncUi
+
   CopyTerminalText ->
     copyTerminalText
 
@@ -1199,6 +1295,7 @@ handleAction = case _ of
         url <- liftEffect $ Browser.sessionTerminalWsUrl state.server sessionId
         let label = "session " <> sessionId
         liftEffect $ Terminal.setSelectionMode terminal false
+        liftEffect $ Terminal.setCommandDeckLatches terminal false false false false
         liftEffect $ Terminal.attachTerminal terminal url label
         H.modify_ _
           { selectedSession = sessionId
@@ -1215,6 +1312,7 @@ handleAction = case _ of
           , terminalSelectionMode = false
           , pasteMenuOpen = false
           , status = "connecting: " <> label
+          , commandDeckLatches = emptyCommandDeckLatches
           }
         refreshWindows sessionId
         syncUi
@@ -1297,6 +1395,7 @@ handleAction = case _ of
       Nothing -> pure unit
       Just terminal -> liftEffect do
         Terminal.setSelectionMode terminal false
+        Terminal.setCommandDeckLatches terminal false false false false
         Terminal.disconnectTerminal terminal
     H.modify_ _
       { attachedSession = ""
@@ -1312,6 +1411,7 @@ handleAction = case _ of
       , terminalSelectionMode = false
       , pasteMenuOpen = false
       , status = "disconnected"
+      , commandDeckLatches = emptyCommandDeckLatches
       }
     syncUi
 
@@ -1357,6 +1457,13 @@ handleAction = case _ of
         H.modify_ _ { status = "link blocked by browser" }
       TerminalScrollGesture lines ->
         scrollAttachedSession lines
+      TerminalCommandDeckConsumed -> do
+        state <- H.get
+        case state.terminal of
+          Nothing -> pure unit
+          Just terminal -> liftEffect $
+            Terminal.setCommandDeckLatches terminal false false false false
+        H.modify_ _ { commandDeckLatches = emptyCommandDeckLatches }
     case event of
       TerminalScrollGesture _ -> pure unit
       _ -> syncUi

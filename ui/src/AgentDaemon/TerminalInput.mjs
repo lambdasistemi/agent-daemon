@@ -80,6 +80,25 @@ export const dispatchKey = (
   latches: emptyLatches()
 });
 
+export const consumeNativeKey = (latches, key, options) => {
+  if (!Object.values(latches).some(Boolean)) {
+    return { consumed: false, data: key, latches };
+  }
+
+  return { consumed: true, ...dispatchKey(latches, key, options) };
+};
+
+export const suppressNativeKeyPhase = (suppressedKey, key, phase) => {
+  if (suppressedKey !== key) {
+    return { suppressed: false, suppressedKey };
+  }
+
+  return {
+    suppressed: true,
+    suppressedKey: phase === "keyup" ? null : suppressedKey
+  };
+};
+
 export const beginArrowRepeat = (
   key,
   { delayMs = 250, limit = 12 } = {}

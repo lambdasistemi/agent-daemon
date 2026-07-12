@@ -14,6 +14,8 @@ module AgentDaemon.FFI.Terminal
   , sendText
   , copySelection
   , setSelectionMode
+  , sendCommandDeckKey
+  , setCommandDeckLatches
   , setTerminalFontSize
   , setTerminalTheme
   ) where
@@ -33,6 +35,7 @@ type TerminalCallbacks =
   , onLinkOpened :: Effect Unit
   , onLinkBlocked :: Effect Unit
   , onScrollGesture :: Int -> Effect Unit
+  , onCommandDeckConsumed :: Effect Unit
   }
 
 foreign import createTerminal
@@ -67,6 +70,11 @@ copySelection terminal =
   toAffE (copySelectionImpl terminal)
 
 foreign import setSelectionMode :: TerminalController -> Boolean -> Effect Unit
+
+foreign import sendCommandDeckKey :: TerminalController -> String -> Effect Unit
+
+foreign import setCommandDeckLatches
+  :: TerminalController -> Boolean -> Boolean -> Boolean -> Boolean -> Effect Unit
 
 foreign import setTerminalTheme :: TerminalController -> String -> Effect Unit
 
