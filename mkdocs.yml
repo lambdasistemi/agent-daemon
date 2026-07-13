@@ -26,6 +26,7 @@ nav:
   - Design: design.md
   - Deployment: deployment.md
   - Tailscale HTTPS: tailscale.md
+  - Release and migration: release.md
 
 markdown_extensions:
   - pymdownx.highlight

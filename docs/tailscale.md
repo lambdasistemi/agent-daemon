@@ -16,12 +16,12 @@ One-time step in the admin console:
 Go to [DNS settings](https://login.tailscale.com/admin/dns) and
 enable **HTTPS Certificates**.
 
-### 2. Bind agent-daemon to localhost
+### 2. Bind tmux-ws to localhost
 
 Keep the daemon off the public network:
 
 ```bash
-agent-daemon --host 127.0.0.1 --port 8080 --base-dir /path/to/worktrees
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir /path/to/worktrees
 ```
 
 ### 3. Start Tailscale Serve

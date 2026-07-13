@@ -1,4 +1,8 @@
-# Agent Daemon — Design
+# tmux-ws design
+
+> Historical architecture diagrams below retain `agent-daemon` labels for
+> context. They are not current installation, service, or command guidance;
+> operators use `tmux-ws` as documented in the deployment and release guides.
 
 ## Overview
 

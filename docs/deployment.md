@@ -7,14 +7,14 @@ The flake exposes a NixOS module:
 ```nix
 # flake.nix
 {
-  inputs.agent-daemon.url = "github:lambdasistemi/tmux-ws";
+  inputs.tmux-ws.url = "github:lambdasistemi/tmux-ws";
 
-  outputs = { nixpkgs, agent-daemon, ... }: {
+  outputs = { nixpkgs, tmux-ws, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       modules = [
-        agent-daemon.nixosModules.default
+        tmux-ws.nixosModules.default
         {
-          services.agent-daemon = {
+          services.tmux-ws = {
             enable = true;
             host = "127.0.0.1";
             port = 8080;
@@ -27,13 +27,14 @@ The flake exposes a NixOS module:
 }
 ```
 
-By default the module creates a dedicated `agent-daemon` system user.
+The primary public service is `tmux-ws`; by default it uses the private
+`agent-daemon` system account and state directory for compatibility.
 To control tmux sessions owned by an existing user, run the daemon as that same
 user and point it at the same tmux socket directory. Replace each placeholder
 below with local values; obtain the numeric id with `id -u <operator>`:
 
 ```nix
-services.agent-daemon = {
+services.tmux-ws = {
   enable = true;
   host = "127.0.0.1";
   port = 8080;
@@ -45,7 +46,7 @@ services.agent-daemon = {
 
 # Keep the user's runtime directory available for the boot-started service.
 users.users."<operator>".linger = true;
-systemd.services.agent-daemon = {
+systemd.services.tmux-ws = {
   after = [ "user-runtime-dir@<uid>.service" ];
   requires = [ "user-runtime-dir@<uid>.service" ];
   environment.TMUX_TMPDIR = "/run/user/<uid>";
@@ -75,8 +76,8 @@ must agree.
 | `baseDir` | path | `/var/lib/agent-daemon` | Root for worktrees |
 | `staticDir` | path | (from flake) | Web UI files |
 | `package` | package | (from flake) | The binary to use |
-| `user` | string | `"agent-daemon"` | User to run as |
-| `group` | string | `"agent-daemon"` | Group to run as |
+| `user` | string | `"agent-daemon"` | Private service account |
+| `group` | string | `"agent-daemon"` | Private service group |
 | `createUser` | bool | `true` | Create a dedicated system user |
 
 ## Systemd (manual)
@@ -84,9 +85,9 @@ must agree.
 If you're not on NixOS, create a unit file:
 
 ```ini
-# /etc/systemd/system/agent-daemon.service
+# /etc/systemd/system/tmux-ws.service
 [Unit]
-Description=Agent daemon — Claude Code session manager
+Description=tmux-ws — browser SPA and tmux session daemon
 After=network.target
 
 [Service]
@@ -94,11 +95,11 @@ Type=simple
 User=<operator>
 Group=<operator-group>
 WorkingDirectory=/path/to/worktrees
-ExecStart=/usr/local/bin/agent-daemon \
+ExecStart=/usr/local/bin/tmux-ws \
   --host 127.0.0.1 \
   --port 8080 \
   --base-dir /path/to/worktrees \
-  --static-dir /usr/local/share/agent-daemon/static
+  --static-dir /usr/local/share/tmux-ws/static
 Restart=on-failure
 RestartSec=5
 Environment=PATH=/usr/bin:/usr/local/bin
@@ -110,8 +111,8 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now agent-daemon
-journalctl -u agent-daemon -f   # watch logs
+sudo systemctl enable --now tmux-ws
+journalctl -u tmux-ws -f   # watch logs
 ```
 
 For a service enabled at boot, ensure `/run/user/<uid>` is created before this
@@ -125,8 +126,16 @@ Build with nix and copy the binary:
 
 ```bash
 nix build .#default
-# result/bin/agent-daemon
+# result/bin/tmux-ws
 
 # Or run directly:
 nix run .#default -- --host 127.0.0.1 --port 8080 --base-dir /code
 ```
+
+## Legacy configuration migration
+
+`services.agent-daemon` is a compatibility alias for `services.tmux-ws` in
+this corrective release. Rename it in configuration and operate the resulting
+single `tmux-ws` unit; do not enable a second legacy daemon. The alias is
+limited to this corrective release and removal requires a separately reviewed
+migration ticket.

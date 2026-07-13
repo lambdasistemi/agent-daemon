@@ -15,7 +15,7 @@ See the [full documentation](https://lambdasistemi.github.io/tmux-ws/docs/).
 ```bash
 nix develop
 just build
-agent-daemon --host 127.0.0.1 --port 8080 --base-dir /code
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
 ```
 
 Then open the daemon URL in a browser on the same machine:

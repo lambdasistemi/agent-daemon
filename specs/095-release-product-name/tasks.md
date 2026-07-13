@@ -41,10 +41,10 @@ clear, tested service and command migration path.
 strict docs/link proof and NixOS compatibility evaluation permit historical
 text only in migration material.
 
-- [ ] T007 [US3] Add a RED current-title/install-command and strict documentation/link contract in `nix/checks.nix` and `flake.nix` only if strict docs wiring requires it.
-- [ ] T008 [US3] Make `nix/module.nix` expose `tmux-ws` as primary NixOS service while evaluating and documenting the legacy `agent-daemon` migration/alias without renaming private state.
-- [ ] T009 [US3] Update `README.md`, `docs/index.md`, `docs/deployment.md`, `docs/tailscale.md`, new `docs/release.md`, and `mkdocs.yml` so new installation, upgrade, deployment, Tailscale, release, and operator commands lead with `tmux-ws` and isolate legacy instructions in migration guidance.
-- [ ] T010 [US3] Green the naming guard, strict docs/link proof, NixOS compatibility proof, and focused release/product-name check.
+- [x] T007 [US3] Add a RED current-title/install-command and strict documentation/link contract in `nix/checks.nix` and `flake.nix` only if strict docs wiring requires it.
+- [x] T008 [US3] Make `nix/module.nix` expose `tmux-ws` as primary NixOS service while evaluating and documenting the legacy `agent-daemon` migration/alias without renaming private state.
+- [x] T009 [US3] Update `README.md`, `docs/index.md`, `docs/deployment.md`, `docs/tailscale.md`, new `docs/release.md`, and `mkdocs.yml` so new installation, upgrade, deployment, Tailscale, release, and operator commands lead with `tmux-ws` and isolate legacy instructions in migration guidance.
+- [x] T010 [US3] Green the naming guard, strict docs/link proof, NixOS compatibility proof, and focused release/product-name check.
 
 ## Dependencies & Execution Order
 

@@ -608,6 +608,93 @@ let
         fi
       '';
     };
+
+    docs-service-contract = {
+      runtimeInputs = [ pkgs.coreutils pkgs.gnugrep ];
+      text = ''
+        set -euo pipefail
+
+        module=nix/module.nix
+        readme=README.md
+        docs_index=docs/index.md
+        deployment=docs/deployment.md
+        tailscale=docs/tailscale.md
+        release_guide=docs/release.md
+        mkdocs=mkdocs.yml
+        failures=0
+
+        require_literal() {
+          local file="$1"
+          local literal="$2"
+          local label="$3"
+
+          if ! grep -Fq "$literal" "$file"; then
+            printf 'docs/service contract: missing %s\n' "$label" >&2
+            failures=1
+          fi
+        }
+
+        require_file() {
+          local file="$1"
+          local label="$2"
+
+          if ! test -f "$file"; then
+            printf 'docs/service contract: missing %s\n' "$label" >&2
+            failures=1
+          fi
+        }
+
+        reject_literal() {
+          local file="$1"
+          local literal="$2"
+          local label="$3"
+
+          if grep -Fq "$literal" "$file"; then
+            printf 'docs/service contract: forbidden %s\n' "$label" >&2
+            failures=1
+          fi
+        }
+
+        require_literal "$module" 'options.services.tmux-ws' 'primary services.tmux-ws module option'
+        require_literal "$module" 'systemd.services.tmux-ws' 'primary tmux-ws systemd unit'
+        require_literal "$module" '/bin/tmux-ws' 'primary tmux-ws service binary'
+        require_literal "$module" 'mkRenamedOptionModule' 'legacy service migration route'
+        require_literal "$module" 'default = "/var/lib/agent-daemon"' 'private legacy state allowance'
+        require_literal "$module" 'default = "agent-daemon"' 'private legacy account allowance'
+        reject_literal "$module" 'systemd.services.agent-daemon' 'legacy primary systemd unit'
+        reject_literal "$module" '/bin/agent-daemon' 'legacy primary service binary'
+        require_literal "$readme" 'tmux-ws --host' 'README primary command'
+        reject_literal "$readme" 'agent-daemon' 'README legacy primary text'
+        require_literal "$docs_index" 'tmux-ws --host' 'index primary command'
+        reject_literal "$docs_index" 'agent-daemon' 'index legacy primary text'
+        require_literal "$deployment" 'services.tmux-ws' 'deployment primary service configuration'
+        reject_literal "$deployment" 'systemctl enable --now agent-daemon' 'deployment legacy service command'
+        reject_literal "$deployment" '/bin/agent-daemon' 'deployment legacy binary command'
+        require_literal "$tailscale" 'tmux-ws --host' 'Tailscale primary command'
+        reject_literal "$tailscale" 'agent-daemon --host' 'Tailscale legacy primary command'
+        require_file "$release_guide" 'release operator guide'
+        if test -f "$release_guide"; then
+        require_literal "$release_guide" 'brew install lambdasistemi/tap/tmux-ws' 'release Homebrew install command'
+          require_literal "$release_guide" 'brew update' 'release Homebrew update command'
+          require_literal "$release_guide" 'brew upgrade tmux-ws' 'release Homebrew upgrade command'
+          require_literal "$release_guide" 'brew upgrade agent-daemon' 'legacy compatibility-alias upgrade path'
+          require_literal "$release_guide" 'brew uninstall agent-daemon' 'legacy compatibility-alias removal path'
+          # Assert the Markdown code span and publication promise independently.
+          # shellcheck disable=SC2016
+          require_literal "$release_guide" '`v0.3.0`' 'immutable publication version code span'
+          require_literal "$release_guide" 'will not be rewritten or deleted' 'immutable no-rewrite/no-delete promise'
+          require_literal "$release_guide" 'v0.3.1' 'corrective publication version'
+          require_literal "$release_guide" 'update the real Homebrew tap' 'corrective tap publication boundary'
+          require_literal "$release_guide" 'corrective release' 'legacy compatibility duration'
+          require_literal "$release_guide" 'separately reviewed migration ticket' 'legacy removal policy'
+        fi
+        require_literal "$mkdocs" 'release.md' 'release guide navigation entry'
+
+        if test "$failures" -ne 0; then
+          exit 1
+        fi
+      '';
+    };
   };
 
   mkApp = name:
@@ -639,5 +726,7 @@ in {
   workflow-lint = mkCheck "workflow-lint" scripts.workflow-lint;
   release-product-name =
     mkCheck "release-product-name" scripts.release-product-name;
+  docs-service-contract =
+    mkCheck "docs-service-contract" scripts.docs-service-contract;
   inherit apps;
 }

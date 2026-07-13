@@ -1,9 +1,16 @@
 { self }:
 { config, lib, pkgs, ... }:
-let cfg = config.services.agent-daemon;
+let cfg = config.services.tmux-ws;
 in {
-  options.services.agent-daemon = {
-    enable = lib.mkEnableOption "agent-daemon";
+  imports = [
+    (lib.mkRenamedOptionModule [ "services" "agent-daemon" ] [
+      "services"
+      "tmux-ws"
+    ])
+  ];
+
+  options.services.tmux-ws = {
+    enable = lib.mkEnableOption "tmux-ws";
 
     host = lib.mkOption {
       type = lib.types.str;
@@ -32,7 +39,7 @@ in {
     package = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.system}.default;
-      description = "The agent-daemon package to use.";
+      description = "The tmux-ws package to use.";
     };
 
     user = lib.mkOption {
@@ -72,8 +79,8 @@ in {
 
     users.groups.${cfg.group} = lib.mkIf cfg.createUser { };
 
-    systemd.services.agent-daemon = {
-      description = "Agent daemon — Claude Code session manager";
+    systemd.services.tmux-ws = {
+      description = "tmux-ws — browser SPA and tmux session daemon";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
 
@@ -92,7 +99,7 @@ in {
             toString cfg.port
           }/tcp 2>/dev/null) 2>/dev/null || true'";
         ExecStart = lib.concatStringsSep " " [
-          "${cfg.package}/bin/agent-daemon"
+          "${cfg.package}/bin/tmux-ws"
           "--host ${cfg.host}"
           "--port ${toString cfg.port}"
           "--base-dir ${cfg.baseDir}"

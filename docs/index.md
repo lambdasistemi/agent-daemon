@@ -118,7 +118,7 @@ nix develop
 just build
 
 # Run
-agent-daemon --host 127.0.0.1 --port 8080 --base-dir /code
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
 ```
 
 ## CLI options
