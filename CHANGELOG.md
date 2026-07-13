@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/lambdasistemi/tmux-ws/compare/v0.2.0...v0.3.0) (2026-07-13)
+
+
+### Features
+
+* add touch terminal command deck ([6e75f3f](https://github.com/lambdasistemi/tmux-ws/commit/6e75f3fdef6fd387afa909f95041b942d2c4a7c2))
+* model terminal command deck input ([d443b6b](https://github.com/lambdasistemi/tmux-ws/commit/d443b6b7b00cb3bcd8e304286484998d9d5df940))
+
+
+### Bug Fixes
+
+* keep touch command deck visible ([af9ecd4](https://github.com/lambdasistemi/tmux-ws/commit/af9ecd4216db71930a68ec87d317a9bf282b6f07))
+* **release:** recover rebased releases safely ([220fa85](https://github.com/lambdasistemi/tmux-ws/commit/220fa85070e783eb75c01fc08a3ecfe120b006f0))
+
+
+### Reverts
+
+* restore gate after command-deck visibility regression ([f8e9cf3](https://github.com/lambdasistemi/tmux-ws/commit/f8e9cf3c5b9525615f4325066c8a8815fbce3442))
+
 ## [0.2.0](https://github.com/lambdasistemi/tmux-ws/compare/v0.1.1...v0.2.0) (2026-07-12)
 
 
