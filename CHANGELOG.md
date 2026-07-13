@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.3.1](https://github.com/lambdasistemi/tmux-ws/compare/v0.3.0...v0.3.1) (2026-07-13)
+
+### Corrective packaging release
+
+`tmux-ws` is now the canonical package, executable, Darwin archive, Homebrew
+formula, NixOS option, and systemd unit. The `agent-daemon` command and formula
+remain only as a bounded migration route for this corrective release.
+
+- **New Homebrew installs:** run `brew update`,
+  `brew install lambdasistemi/tap/tmux-ws`, then `tmux-ws --help`.
+- **Legacy Homebrew migration:** install `tmux-ws` first and migrate scripts.
+  Then either upgrade `agent-daemon` to retain its temporary command alias or
+  uninstall it after migration.
+- **NixOS migration:** rename `services.agent-daemon` to `services.tmux-ws`.
+  The compatibility option maps to the single `tmux-ws.service`; private
+  account and state defaults stay unchanged to avoid disrupting upgrades.
+- **Browser refresh after upgrade:** restart the daemon, then reload the
+  browser document. The in-app **Refresh** action reloads tmux state, not the
+  installed SPA document—this distinction matters on Chrome tablets.
+- **Immutable history:** `v0.3.0` is unchanged. This release publishes the new
+  `tmux-ws-0.3.1-aarch64-darwin.tar.gz` asset and updates the real Homebrew tap.
+
+See [installation](https://lambdasistemi.github.io/tmux-ws/docs/#quick-start),
+the [release and migration guide](https://lambdasistemi.github.io/tmux-ws/docs/release/),
+[deployment](https://lambdasistemi.github.io/tmux-ws/docs/deployment/), and
+[Tailscale HTTPS](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/).
+
 ## [0.3.0](https://github.com/lambdasistemi/tmux-ws/compare/v0.2.0...v0.3.0) (2026-07-13)
 
 
