@@ -15,9 +15,9 @@ non-primary `agent-daemon` command.
 **Independent Test**: Baseline focused check fails for the old default; the
 Green packaged output runs both help commands and selects `tmux-ws` as primary.
 
-- [ ] T001 [US1] Add RED public-package and packaged-help assertions in `nix/checks.nix` that fail against the `agent-daemon` default surface.
-- [ ] T002 [US1] Rename the public Cabal manifest/package and make `tmux-ws` the default executable in `tmux-ws.cabal`, `nix/project.nix`, and `nix/apps.nix`, retaining a documented compatibility `agent-daemon` executable.
-- [ ] T003 [US1] Green the focused package check and update `nix/checks.nix` to prove both commands while selecting `tmux-ws` as primary.
+- [X] T001 [US1] Add RED public-package and packaged-help assertions in `nix/checks.nix` that fail against the `agent-daemon` default surface.
+- [X] T002 [US1] Rename the public Cabal manifest/package and make `tmux-ws` the default executable in `tmux-ws.cabal`, `nix/project.nix`, and `nix/apps.nix`, retaining a documented compatibility `agent-daemon` executable.
+- [X] T003 [US1] Green the focused package check and update `nix/checks.nix` to prove both commands while selecting `tmux-ws` as primary.
 
 ## Phase 2: User Story 2 — Receive a safe macOS/Homebrew corrective release (P1)
 

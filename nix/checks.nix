@@ -2,9 +2,11 @@
 let
   scripts = {
     haskell-build = {
-      runtimeInputs = [ components.exes.agent-daemon ];
+      runtimeInputs = [ components.exes.tmux-ws components.exes.agent-daemon ];
       text = ''
         test -e ${components.library}
+        test -x ${components.exes.tmux-ws}/bin/tmux-ws
+        tmux-ws --help >/dev/null
         test -x ${components.exes.agent-daemon}/bin/agent-daemon
         agent-daemon --help >/dev/null
       '';
@@ -40,7 +42,7 @@ let
         pkgs.nixfmt-classic
       ];
       text = ''
-        diff -u agent-daemon.cabal <(cabal-fmt agent-daemon.cabal)
+        diff -u tmux-ws.cabal <(cabal-fmt tmux-ws.cabal)
         find src app -type f -name '*.hs' -exec fourmolu -m check {} +
         nixfmt --check flake.nix nix/*.nix
       '';
@@ -264,7 +266,7 @@ let
           "$version_preflight" \
           'CI manifest drift guard'
 
-        assert_version_contract "$manifest" agent-daemon.cabal current
+        assert_version_contract "$manifest" tmux-ws.cabal current
         future_version_dir="$(mktemp -d)"
         trap 'rm -rf "$future_version_dir"' EXIT
         printf '{".":"0.2.0"}\n' > "$future_version_dir/manifest.json"

@@ -53,13 +53,14 @@
         '';
       in {
         packages = project.packages // {
-          default = project.packages.main;
+          default = project.packages.tmux-ws;
           inherit docs site;
         };
         checks = builtins.removeAttrs checksWithApps [ "apps" ];
         apps = import ./nix/apps.nix {
           inherit pkgs;
           checks = checksWithApps;
+          packages = project.packages;
         };
         devShells.default = project.devShells.default.overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ])

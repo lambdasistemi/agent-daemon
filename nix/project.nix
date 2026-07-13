@@ -3,10 +3,10 @@ let
   planProject = pkgs.haskell-nix.cabalProject' {
     src = pkgs.haskell-nix.cleanSourceHaskell {
       src = ./..;
-      name = "agent-daemon";
+      name = "tmux-ws";
     };
     compiler-nix-name = "ghc984";
-    modules = [{ packages.agent-daemon.flags.development-warnings = true; }];
+    modules = [{ packages.tmux-ws.flags.development-warnings = true; }];
     shell = { ... }: {
       tools = {
         cabal = { };
@@ -104,9 +104,11 @@ let
     '';
   };
 in {
-  components = project.hsPkgs.agent-daemon.components;
+  components = project.hsPkgs.tmux-ws.components;
   packages = {
-    main = project.hsPkgs.agent-daemon.components.exes.agent-daemon;
+    main = project.hsPkgs.tmux-ws.components.exes.tmux-ws;
+    tmux-ws = project.hsPkgs.tmux-ws.components.exes.tmux-ws;
+    agent-daemon = project.hsPkgs.tmux-ws.components.exes.agent-daemon;
     inherit static uiBuild uiNodeModules;
   };
   devShells.default = project.shell;
