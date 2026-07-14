@@ -37,11 +37,11 @@
 
 ## Corrective Slice 2.1 — runner-minimal CI release consistency
 
-- [ ] T013-C1 Establish a RED reproduction of the hosted runner-minimal PATH
+- [X] T013-C1 Establish a RED reproduction of the hosted runner-minimal PATH
   failure and trace the missing `awk` dependency from CI to the release helper.
-- [ ] T014-C1 Invoke consistency validation through an explicit Nix-owned or
+- [X] T014-C1 Invoke consistency validation through an explicit Nix-owned or
   flake-owned runtime without weakening the validation behavior.
-- [ ] T015-C1 Add regression/static workflow coverage, pass the extended gate,
+- [X] T015-C1 Add regression/static workflow coverage, pass the extended gate,
   and obtain hosted exact-head Build Gate proof.
 
 ## Slice 3 — narrow Linux release guide

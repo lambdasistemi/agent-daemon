@@ -22,7 +22,7 @@ jobs:
           name: paolino
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Validate Cabal and changelog release consistency
-        run: scripts/release/check-version-consistency --mode proposal
+        run: nix run --quiet .#release-consistency
       - name: Run flake checks
         run: nix flake check --no-eval-cache
       - name: Realize development shell
