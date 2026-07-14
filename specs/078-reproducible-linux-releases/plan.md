@@ -74,6 +74,23 @@ the merged project gate.
    retention, modes, and product compatibility. Run focused RED/GREEN,
    actionlint, flake checks, Linux smoke, and the full temporary gate.
 
+## Corrective Slice 2.1 — runner-minimal Cabal consistency invocation
+
+**Owned files**: `.github/workflows/ci.yml`, `nix/checks.nix`, and the
+smallest existing release-planner test/helper file needed for a runner-minimal
+regression. This corrective slice is required after the hosted Build Gate at
+`7fec8c5` showed `scripts/release/get-cabal-version: awk: command not found`.
+
+1. Establish RED evidence for the CI consistency command under a minimal PATH
+   without `awk`, tracing the direct workflow invocation to the helper's
+   runtime dependency.
+2. Run the version-consistency command through an explicit Nix-owned runtime
+   (or an equivalently flake-owned declared dependency), so a GitHub runner
+   never relies on ambient `awk`; do not weaken or remove the consistency step.
+3. Extend the static workflow and focused regression contracts to require the
+   protected runtime boundary, then run the full gate and obtain hosted
+   exact-head Build Gate proof before resuming documentation.
+
 ## Slice 3 — release-facing Linux installation guidance
 
 **Owned file**: `docs/release.md` only.

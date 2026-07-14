@@ -35,17 +35,26 @@
   flake checks, Linux artifact smoke, and the extended full gate in one
   reviewed commit.
 
+## Corrective Slice 2.1 — runner-minimal CI release consistency
+
+- [ ] T013-C1 Establish a RED reproduction of the hosted runner-minimal PATH
+  failure and trace the missing `awk` dependency from CI to the release helper.
+- [ ] T014-C1 Invoke consistency validation through an explicit Nix-owned or
+  flake-owned runtime without weakening the validation behavior.
+- [ ] T015-C1 Add regression/static workflow coverage, pass the extended gate,
+  and obtain hosted exact-head Build Gate proof.
+
 ## Slice 3 — narrow Linux release guide
 
-- [ ] T013-S3 Establish RED evidence for missing Linux artifact and
+- [ ] T016-S3 Establish RED evidence for missing Linux artifact and
   non-publication-boundary guidance.
-- [ ] T014-S3 Document the stable AppImage and versioned DEB/RPM routes while
+- [ ] T017-S3 Document the stable AppImage and versioned DEB/RPM routes while
   preserving `tmux-ws` identity, bounded compatibility, and v0.3.1 history.
-- [ ] T015-S3 Green focused guide/docs checks, Linux artifact smoke, and the
+- [ ] T018-S3 Green focused guide/docs checks, Linux artifact smoke, and the
   extended full gate in one reviewed commit.
 
 ## Finalization
 
-- [ ] T016-O Audit all checked tasks, commit messages, PR body, exact
+- [ ] T019-O Audit all checked tasks, commit messages, PR body, exact
   artifact names, publication/rollback guarantees, local gate, and exact-head
   hosted CI; drop `gate.sh` only when the PR is ready for review.
