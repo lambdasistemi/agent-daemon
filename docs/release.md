@@ -13,6 +13,48 @@ tmux-ws --help
 NixOS users should configure `services.tmux-ws` and enable the `tmux-ws`
 systemd service.
 
+## Future Linux release artifacts
+
+Future Linux releases provide
+`tmux-ws-<version>-x86_64-linux.AppImage`,
+`tmux-ws-<version>-x86_64-linux.deb`,
+`tmux-ws-<version>-x86_64-linux.rpm`, `SHA256SUMS`, and the stable
+`tmux-ws.AppImage` path. Download the matching assets and verify the checksum
+before using an AppImage:
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+chmod +x tmux-ws-<version>-x86_64-linux.AppImage
+./tmux-ws-<version>-x86_64-linux.AppImage --help
+```
+
+The stable path is the same AppImage under an unversioned name:
+
+```bash
+chmod +x tmux-ws.AppImage
+./tmux-ws.AppImage --help
+```
+
+On Debian or Ubuntu, install the downloaded package and then use the canonical
+`tmux-ws` executable:
+
+```bash
+sudo apt install ./tmux-ws-<version>-x86_64-linux.deb
+tmux-ws --help
+```
+
+On an RPM-based distribution, use the equivalent RPM package:
+
+```bash
+sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
+tmux-ws --help
+```
+
+Pull requests and default manual runs build and smoke artifacts only. They do
+not publish production assets. A future immutable `v*` tag attaches production assets only to the planner-created release.
+The attachment is idempotent and does not delete or recreate that release.
+This PR does not publish, dispatch, retag, rewrite releases, or mutate a tap.
+
 `v0.3.0` is immutable and remains unchanged, and will not be rewritten or deleted.
 `v0.3.1` is published with the canonical `tmux-ws-0.3.1-aarch64-darwin.tar.gz` Darwin asset and an
 updated Homebrew tap formula. The release workflow used that formula to

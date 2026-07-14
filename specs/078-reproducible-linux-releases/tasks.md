@@ -46,11 +46,11 @@
 
 ## Slice 3 — narrow Linux release guide
 
-- [ ] T016-S3 Establish RED evidence for missing Linux artifact and
+- [X] T016-S3 Establish RED evidence for missing Linux artifact and
   non-publication-boundary guidance.
-- [ ] T017-S3 Document the stable AppImage and versioned DEB/RPM routes while
+- [X] T017-S3 Document the stable AppImage and versioned DEB/RPM routes while
   preserving `tmux-ws` identity, bounded compatibility, and v0.3.1 history.
-- [ ] T018-S3 Green focused guide/docs checks, Linux artifact smoke, and the
+- [X] T018-S3 Green focused guide/docs checks, Linux artifact smoke, and the
   extended full gate in one reviewed commit.
 
 ## Finalization
