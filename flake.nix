@@ -13,9 +13,13 @@
       url = "github:jeslie0/mkSpagoDerivation";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    bundlers = {
+      url = "github:NixOS/bundlers";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = inputs@{ self, nixpkgs, flake-utils, haskellNix, dev-assets-mkdocs
-    , purescript-overlay, mkSpagoDerivation, ... }:
+    , purescript-overlay, mkSpagoDerivation, bundlers, ... }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-darwin" ] (system:
       let
         pkgs = import nixpkgs {
@@ -27,6 +31,31 @@
           inherit system;
         };
         project = import ./nix/project.nix { inherit pkgs; };
+        cabalVersion = let
+          versionLine = builtins.head (builtins.filter
+            (line: builtins.match "^version:[[:space:]]*.*$" line != null)
+            (pkgs.lib.splitString "\n" (builtins.readFile ./tmux-ws.cabal)));
+        in builtins.head
+        (builtins.match "^version:[[:space:]]*([^[:space:]]+).*$" versionLine);
+        devVersion = "${cabalVersion}-${
+            if self ? shortRev then
+              self.shortRev
+            else if self ? dirtyShortRev then
+              self.dirtyShortRev
+            else
+              "dirty"
+          }";
+        linuxTmuxWs = pkgs.symlinkJoin {
+          name = "tmux-ws-${cabalVersion}";
+          paths = [ project.packages.tmux-ws ];
+          meta.mainProgram = "tmux-ws";
+        };
+        linuxRelease = import ./nix/linux-release.nix {
+          inherit pkgs cabalVersion devVersion linuxTmuxWs;
+          bundlers = bundlers.bundlers.${system};
+        };
+        linuxArtifactSmoke =
+          import ./nix/linux-artifact-smoke.nix { inherit pkgs; };
         checksWithApps = import ./nix/checks.nix {
           inherit pkgs;
           inherit (project) components;
@@ -128,6 +157,9 @@
         packages = project.packages // {
           default = project.packages.tmux-ws;
           inherit docs site;
+        } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          linux-release-artifacts = linuxRelease.release;
+          linux-dev-release-artifacts = linuxRelease.dev;
         };
         checks = (builtins.removeAttrs checksWithApps [ "apps" ])
           // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
@@ -142,6 +174,11 @@
           inherit pkgs;
           checks = checksWithApps;
           packages = project.packages;
+        } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          linux-artifact-smoke = {
+            type = "app";
+            program = pkgs.lib.getExe linuxArtifactSmoke;
+          };
         };
         devShells.default = project.devShells.default.overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ])

@@ -2,15 +2,15 @@
 
 ## Slice 1 — flake-owned Linux packages and smoke
 
-- [ ] T001-S1 Establish RED evidence for absent Linux release/dev artifact
+- [X] T001-S1 Establish RED evidence for absent Linux release/dev artifact
   outputs and absent installed-artifact smoke app.
-- [ ] T002-S1 Add pinned bundlers and a Linux-only canonical `tmux-ws` package
+- [X] T002-S1 Add pinned bundlers and a Linux-only canonical `tmux-ws` package
   wrapper carrying `meta.mainProgram`.
-- [ ] T003-S1 Stage exact release and revision-suffixed dev AppImage/DEB/RPM,
+- [X] T003-S1 Stage exact release and revision-suffixed dev AppImage/DEB/RPM,
   stable AppImage, and SHA256SUMS outputs from the Cabal version.
-- [ ] T004-S1 Implement the extraction/install smoke for every format and
+- [X] T004-S1 Implement the extraction/install smoke for every format and
   prove offline canonical-executable help behavior.
-- [ ] T005-S1 Green focused Nix checks, release/dev artifact builds, smoke, and
+- [X] T005-S1 Green focused Nix checks, release/dev artifact builds, smoke, and
   the temporary full gate in one reviewed commit.
 
 ## Owner gate extension — keep package proof mandatory
