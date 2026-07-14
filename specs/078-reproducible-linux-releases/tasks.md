@@ -15,7 +15,7 @@
 
 ## Owner gate extension — keep package proof mandatory
 
-- [ ] T006-O Extend the temporary gate with dev Linux artifact build and smoke
+- [X] T006-O Extend the temporary gate with dev Linux artifact build and smoke
   after Slice 1 acceptance; verify the new command before committing it.
 
 ## Slice 2 — Cabal planner and workflow conversion
