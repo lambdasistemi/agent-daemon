@@ -60,6 +60,21 @@ make_repo() {
 }
 
 bash "$root/scripts/release/check-version-consistency" --mode proposal
+runner_minimal_bin="$tmp/runner-minimal-bin"
+mkdir "$runner_minimal_bin"
+for command in env bash dirname; do
+  ln -s "$(command -v "$command")" "$runner_minimal_bin/$command"
+done
+expect_fail 'runner-minimal direct consistency command lacks awk' \
+  env PATH="$runner_minimal_bin" \
+  "$root/scripts/release/check-version-consistency" --mode proposal
+assert_contains 'nix run --quiet .#release-consistency' "$root/.github/workflows/ci.yml"
+assert_not_contains 'run: scripts/release/check-version-consistency --mode proposal' \
+  "$root/.github/workflows/ci.yml"
+assert_contains 'release-consistency = {' "$root/nix/checks.nix"
+assert_contains 'text = "bash scripts/release/check-version-consistency --mode proposal";' \
+  "$root/nix/checks.nix"
+
 reject_repo="$tmp/reject"
 make_repo "$reject_repo"
 printf '{}\n' > "$reject_repo/release-please-config.json"

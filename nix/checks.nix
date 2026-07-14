@@ -87,6 +87,18 @@ let
       text = "bash test/release-plan.sh";
     };
 
+    release-consistency = {
+      runtimeInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.git
+        pkgs.gawk
+        pkgs.gnugrep
+        pkgs.gnused
+      ];
+      text = "bash scripts/release/check-version-consistency --mode proposal";
+    };
+
     workflow-lint = {
       runtimeInputs = [
         pkgs.actionlint
@@ -116,7 +128,11 @@ let
             exit 1
           fi
         done
-        grep -Fq 'scripts/release/check-version-consistency --mode proposal' "$ci"
+        grep -Fq 'nix run --quiet .#release-consistency' "$ci"
+        if grep -Fq 'run: scripts/release/check-version-consistency --mode proposal' "$ci"; then
+          echo 'workflow contract: release consistency must run through the Nix boundary' >&2
+          exit 1
+        fi
         grep -Fq 'actions/create-github-app-token@v1' "$plan"
         grep -Fq 'repositories: tmux-ws' "$plan"
         # shellcheck disable=SC2016
