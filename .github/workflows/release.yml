@@ -1,212 +1,67 @@
-name: Release
+name: Linux release artifacts
 
 on:
-  push:
+  pull_request:
     branches: [main]
+  push:
+    tags: [v*]
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
-  release-please:
-    name: Plan or create release
+  build-and-smoke:
+    name: Build and smoke Linux artifacts
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.resolve.outputs.release_created }}
-      tag_name: ${{ steps.resolve.outputs.tag_name }}
-      version: ${{ steps.resolve.outputs.version }}
-      sha: ${{ steps.resolve.outputs.sha }}
     steps:
+      - uses: actions/checkout@v6
+      - name: Verify Cabal release consistency for a tag
+        if: github.event_name == 'push'
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(scripts/release/get-cabal-version)"
+          scripts/release/check-version-consistency --mode publish
+      - uses: cachix/install-nix-action@v30
+      - name: Build Linux artifacts
+        run: nix build -L .#linux-release-artifacts
+      - name: Smoke installed Linux artifacts
+        run: nix run .#linux-artifact-smoke -- result
+      - name: Upload review artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmux-ws-linux-${{ github.sha }}
+          path: result/*
+          retention-days: 30
       - name: Mint a scoped release token
-        id: app-token
-        uses: actions/create-github-app-token@v3
+        if: github.event_name == 'push'
+        id: release-token
+        uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
           owner: lambdasistemi
           repositories: tmux-ws
           permission-contents: write
-          permission-pull-requests: write
-
-      - uses: actions/checkout@v6
-
-      - name: Record release recovery start time
-        id: recovery-context
-        run: echo "started_at=$(date --utc +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-
-      - name: Plan or create release
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          skip-labeling: true
-
-      - name: Recover a rebased generated release PR
-        id: recover
-        if: ${{ github.event_name == 'push' && steps.release.outputs.release_created != 'true' }}
+      - name: Wait for the planner-created GitHub release
+        if: github.event_name == 'push'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          RECOVERY_STARTED_AT: ${{ steps.recovery-context.outputs.started_at }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          set -euo pipefail
-
-          write_recovery_outputs() {
-            {
-              echo 'release_created=true'
-              echo "tag_name=$tag"
-              echo "version=$version"
-              echo "sha=$GITHUB_SHA"
-            } >> "$GITHUB_OUTPUT"
-          }
-
-          pull_requests="$RUNNER_TEMP/commit-pulls.json"
-          gh api --paginate --slurp \
-            "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls?per_page=100" \
-            > "$pull_requests"
-
-          matches="$RUNNER_TEMP/recovery-prs.json"
-          jq '[.[][] | select(
-            .merged_at != null and
-            (.user.login == "lambdasistemi-ci[bot]" or .user.login == "app/lambdasistemi-ci") and
-            .base.ref == "main" and
-            .head.ref == "release-please--branches--main"
-          )]' "$pull_requests" > "$matches"
-          match_count="$(jq 'length' "$matches")"
-          case "$match_count" in
-            0) exit 0 ;;
-            1) ;;
-            *)
-              printf 'ambiguous generated release PRs for pushed commit: %s\n' \
-                "$match_count" >&2
-              exit 1
-              ;;
-          esac
-
-          version="$(jq -er '."."' .release-please-manifest.json)"
-          case "$version" in
-            [0-9]*.[0-9]*.[0-9]*) ;;
-            *) printf 'invalid release manifest version: %s\n' "$version" >&2; exit 1 ;;
-          esac
-          tag="v$version"
-          title="chore(main): release $version"
-          if test "$(jq -r '.[0].title' "$matches")" != "$title"; then
-            printf 'release metadata mismatch: generated PR title\n' >&2
-            exit 1
-          fi
-          if test "$(awk '$1 == "version:" { print $2; exit }' tmux-ws.cabal)" != "$version"; then
-            printf 'release metadata mismatch: Cabal version\n' >&2
-            exit 1
-          fi
-          if ! grep -Eq "^## \\[$version\\]" CHANGELOG.md; then
-            printf 'release metadata mismatch: changelog section\n' >&2
-            exit 1
-          fi
-
-          tag_status=0
-          git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null 2>&1 \
-            || tag_status=$?
-          case "$tag_status" in
-            0) tag_exists=true ;;
-            2) tag_exists=false ;;
-            *)
-            printf 'could not determine whether %s already exists\n' "$tag" >&2
-            exit "$tag_status"
-              ;;
-          esac
-
-          release_response="$RUNNER_TEMP/release-response"
-          release_status=0
-          gh api --include "repos/${GITHUB_REPOSITORY}/releases/tags/$tag" \
-            > "$release_response" 2>&1 || release_status=$?
-          if test "$release_status" = 0; then
-            release_exists=true
-          elif grep -Eq '^HTTP/[0-9.]+ 404' "$release_response"; then
-            release_exists=false
-          else
-            cat "$release_response" >&2
-            exit "$release_status"
-          fi
-
-          if test "$tag_exists" = true && test "$release_exists" = true; then
-            write_recovery_outputs
-            exit 0
-          fi
-          if test "$tag_exists" != "$release_exists"; then
-            printf 'release state conflict for %s: tag=%s release=%s\n' \
-              "$tag" "$tag_exists" "$release_exists" >&2
-            exit 1
-          fi
-
-          notes="$RUNNER_TEMP/release-notes.md"
-          awk -v version="$version" '
-            $0 ~ "^## \\[" version "\\]" { printing = 1; next }
-            printing && /^## / { exit }
-            printing { print }
-          ' CHANGELOG.md > "$notes"
-          test -s "$notes"
-          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" \
-            --notes-file "$notes" --repo "$GITHUB_REPOSITORY"
-          write_recovery_outputs
-
-          false_prs="$RUNNER_TEMP/false-release-prs.json"
-          if ! gh pr list --state open --head release-please--branches--main \
-            --repo "$GITHUB_REPOSITORY" --json number,createdAt,author \
-            > "$false_prs"; then
-            printf 'warning: could not list false release PRs for cleanup\n' >&2
-            exit 0
-          fi
-          false_pr_numbers="$RUNNER_TEMP/false-release-pr-numbers"
-          if ! jq -r --arg started_at "$RECOVERY_STARTED_AT" '
-            .[] | select(
-              (.author.login == "lambdasistemi-ci[bot]" or .author.login == "app/lambdasistemi-ci") and
-              .createdAt >= $started_at
-            ) | .number
-          ' "$false_prs" > "$false_pr_numbers"; then
-            printf 'warning: could not select false release PRs for cleanup\n' >&2
-            exit 0
-          fi
-          while IFS= read -r number; do
-            if ! gh pr close "$number" --delete-branch --repo "$GITHUB_REPOSITORY"; then
-              printf 'warning: could not close false release PR %s\n' "$number" >&2
+          for _attempt in $(seq 1 30); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null; then
+              exit 0
             fi
-          done < "$false_pr_numbers"
-
-      - name: Resolve primary or recovered release outputs
-        id: resolve
+            sleep 10
+          done
+          printf 'planner-created release not visible for %s\n' "$TAG" >&2
+          exit 1
+      - name: Attach Linux assets to existing release
+        if: github.event_name == 'push'
         env:
-          PRIMARY_RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
-          PRIMARY_TAG_NAME: ${{ steps.release.outputs.tag_name }}
-          PRIMARY_VERSION: ${{ steps.release.outputs.version }}
-          PRIMARY_SHA: ${{ steps.release.outputs.sha }}
-          RECOVERED_RELEASE_CREATED: ${{ steps.recover.outputs.release_created }}
-          RECOVERED_TAG_NAME: ${{ steps.recover.outputs.tag_name }}
-          RECOVERED_VERSION: ${{ steps.recover.outputs.version }}
-          RECOVERED_SHA: ${{ steps.recover.outputs.sha }}
-        run: |
-          if test "$PRIMARY_RELEASE_CREATED" = true; then
-            {
-              echo 'release_created=true'
-              echo "tag_name=$PRIMARY_TAG_NAME"
-              echo "version=$PRIMARY_VERSION"
-              echo "sha=$PRIMARY_SHA"
-            } >> "$GITHUB_OUTPUT"
-          elif test "$RECOVERED_RELEASE_CREATED" = true; then
-            {
-              echo 'release_created=true'
-              echo "tag_name=$RECOVERED_TAG_NAME"
-              echo "version=$RECOVERED_VERSION"
-              echo "sha=$RECOVERED_SHA"
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo 'release_created=false' >> "$GITHUB_OUTPUT"
-          fi
-
-  publish-darwin:
-    name: Publish Darwin asset and Homebrew formula
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    uses: ./.github/workflows/darwin-release.yml
-    with:
-      tag: ${{ needs.release-please.outputs.tag_name }}
-    secrets: inherit
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" result/* --clobber --repo "$GITHUB_REPOSITORY"

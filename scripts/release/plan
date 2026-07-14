@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+dry_run=false
+if test "$#" = 1 && test "$1" = --dry-run; then
+  dry_run=true
+elif test "$#" -ne 0; then
+  printf 'usage: %s [--dry-run]\n' "$0" >&2
+  exit 64
+fi
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$root"
+branch=release/cabal-release
+version="$(bash scripts/release/get-cabal-version)"
+tag="v$version"
+
+next_version() {
+  local major minor patch bump
+  IFS=. read -r major minor patch <<< "$version"
+  bump="$1"
+  case "$bump" in
+    major) printf '%s.0.0\n' "$((major + 1))" ;;
+    minor) printf '%s.%s.0\n' "$major" "$((minor + 1))" ;;
+    patch) printf '%s.%s.%s\n' "$major" "$minor" "$((patch + 1))" ;;
+  esac
+}
+
+if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+  # A Cabal version without a tag is a merged proposal awaiting its one release.
+  gh pr list --state merged --head "$branch" --base main --json mergedAt >/dev/null
+  if "$dry_run"; then
+    printf 'publish version=%s tag=%s\n' "$version" "$tag"
+    exit 0
+  fi
+
+  if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+    git tag -a "$tag" -m "Release $tag"
+    git push origin "$tag"
+  fi
+  if ! gh release view "$tag" --repo "${GITHUB_REPOSITORY:-}" >/dev/null 2>&1; then
+    notes="$(mktemp)"
+    trap 'rm -f "$notes"' EXIT
+    bash scripts/release/extract-notes "$version" > "$notes"
+    gh release create "$tag" --title "$tag" --notes-file "$notes" \
+      --repo "${GITHUB_REPOSITORY:-}"
+  fi
+  printf 'published version=%s tag=%s\n' "$version" "$tag"
+  exit 0
+fi
+
+commits="$(git log --format='%B' "$tag..HEAD")"
+if ! grep -Eq '^(feat|fix|perf)(\([^)]+\))?!?: ' <<< "$commits"; then
+  printf 'no releasable commits after %s\n' "$tag"
+  exit 0
+fi
+
+if grep -Eq '^[[:alpha:]]+(\([^)]+\))?!: |^BREAKING CHANGE:' <<< "$commits"; then
+  bump=major
+elif grep -Eq '^feat(\([^)]+\))?: ' <<< "$commits"; then
+  bump=minor
+else
+  bump="patch"
+fi
+next="$(next_version "$bump")"
+
+if "$dry_run"; then
+  printf 'proposal version=%s branch=%s bump=%s\n' "$next" "$branch" "$bump"
+  exit 0
+fi
+
+git switch --force-create "$branch"
+sed -E -i "s/^(version:[[:space:]]*).*/\1${next}/" tmux-ws.cabal
+notes="$(mktemp)"
+trap 'rm -f "$notes"' EXIT
+{
+  printf '# Changelog\n\n## [%s] (%s)\n\n### Release\n\n' "$next" "$(date --utc +%F)"
+  git log --format='- %s (%h)' "$tag..HEAD"
+  printf '\n'
+  tail -n +2 CHANGELOG.md
+} > "$notes"
+mv "$notes" CHANGELOG.md
+git add tmux-ws.cabal CHANGELOG.md
+if ! git diff --cached --quiet; then
+  git commit -m "chore(release): prepare v${next}"
+fi
+git push --force-with-lease origin "HEAD:refs/heads/$branch"
+if gh pr view "$branch" --repo "${GITHUB_REPOSITORY:-}" >/dev/null 2>&1; then
+  gh pr edit "$branch" --title "chore(release): prepare v${next}" \
+    --body "Cabal-owned release proposal for v${next}."
+else
+  gh pr create --head "$branch" --base main --title "chore(release): prepare v${next}" \
+    --body "Cabal-owned release proposal for v${next}."
+fi
+printf 'proposal version=%s branch=%s\n' "$next" "$branch"

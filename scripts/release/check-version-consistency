@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+test "$#" = 2 && test "$1" = --mode || {
+  printf 'usage: %s --mode proposal|publish\n' "$0" >&2
+  exit 64
+}
+mode="$2"
+case "$mode" in proposal|publish) ;; *) printf 'invalid consistency mode: %s\n' "$mode" >&2; exit 64 ;; esac
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$root"
+
+for obsolete in \
+  .github/workflows/sync-cabal-version.yml \
+  release-please-config.json \
+  .release-please-manifest.json; do
+  if test -e "$obsolete"; then
+    printf 'obsolete release-please artifact remains: %s\n' "$obsolete" >&2
+    exit 1
+  fi
+done
+
+version="$(bash scripts/release/get-cabal-version)"
+bash scripts/release/extract-notes "$version" >/dev/null
+
+tag="v$version"
+if test "$mode" = publish && git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+  test "$(git cat-file -t "refs/tags/$tag")" = tag || {
+    printf 'release tag must be annotated: %s\n' "$tag" >&2
+    exit 1
+  }
+fi
+
+if test "$mode" = publish && git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+  git show -s --format=%B "$tag" | grep -Fqx "Release $tag" || {
+    printf 'release tag message does not match %s\n' "$tag" >&2
+    exit 1
+  }
+fi

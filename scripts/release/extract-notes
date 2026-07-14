@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+test "$#" = 1 || {
+  printf 'usage: %s VERSION\n' "$0" >&2
+  exit 64
+}
+
+version="$1"
+case "$version" in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) printf 'invalid version: %s\n' "$version" >&2; exit 64 ;;
+esac
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+changelog="$root/CHANGELOG.md"
+test -f "$changelog" || {
+  printf 'missing changelog: %s\n' "$changelog" >&2
+  exit 1
+}
+
+awk -v version="$version" '
+  $0 ~ "^## \\[" version "\\]([[:space:]]|\\()" {
+    if (found) exit 2
+    found = 1
+    next
+  }
+  found && /^##[[:space:]]/ { done = 1; exit }
+  found {
+    print
+    if ($0 ~ /[^[:space:]]/) nonempty = 1
+  }
+  END {
+    if (!found || !nonempty) exit 1
+  }
+' "$changelog" || {
+  printf 'missing or empty changelog section for %s\n' "$version" >&2
+  exit 1
+}

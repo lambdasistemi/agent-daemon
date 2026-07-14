@@ -1,28 +1,21 @@
 name: Darwin Release
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        description: Existing release tag to publish
-        required: true
-        type: string
-    secrets:
-      CI_APP_PRIVATE_KEY:
-        required: true
+  pull_request:
+    branches: [main]
+  push:
+    tags: [v*]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag to publish
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: darwin-release-${{ inputs.tag }}
+  group: darwin-release-${{ github.ref }}
   cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-and-release:
@@ -30,12 +23,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.tag }}
 
       - name: Mint a scoped release token
+        if: github.event_name == 'push'
         id: release-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
@@ -43,28 +35,17 @@ jobs:
           repositories: tmux-ws
           permission-contents: write
 
-      - name: Verify tag, versions, and existing release
+      - name: Verify Cabal version and tag mode
         id: version
         env:
-          GH_TOKEN: ${{ steps.release-token.outputs.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.ref_name }}
         run: |
-          case "$TAG" in
-            v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) printf 'invalid release tag: %s\n' "$TAG" >&2; exit 1 ;;
-          esac
-
-          tag_version="${TAG#v}"
-          manifest_version="$(jq -er '."."' .release-please-manifest.json)"
-          cabal_version="$(awk '$1 == "version:" { print $2; exit }' tmux-ws.cabal)"
-
-          test -n "$cabal_version"
-          test "$tag_version" = "$manifest_version"
-          test "$cabal_version" = "$manifest_version"
-          test "$(git describe --tags --exact-match)" = "$TAG"
-          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)" = "$TAG"
-
-          printf 'version=%s\n' "$tag_version" >> "$GITHUB_OUTPUT"
+          version="$(scripts/release/get-cabal-version)"
+          if test "$GITHUB_EVENT_NAME" = push; then
+            test "$TAG" = "v$version"
+            scripts/release/check-version-consistency --mode publish
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
       - uses: cachix/install-nix-action@v30
         with:
@@ -163,16 +144,40 @@ jobs:
           printf 'path=%s\n' "$asset" >> "$GITHUB_OUTPUT"
           printf 'sha256=%s\n' "$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Upload asset to existing release
+      - name: Upload Darwin review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmux-ws-darwin-${{ github.sha }}
+          path: ${{ steps.asset.outputs.path }}
+          retention-days: 30
+
+      - name: Wait for the planner-created GitHub release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          for _attempt in $(seq 1 30); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          printf 'planner-created release not visible for %s\n' "$TAG" >&2
+          exit 1
+
+      - name: Upload asset to existing release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+          TAG: ${{ github.ref_name }}
           ASSET: ${{ steps.asset.outputs.path }}
         run: gh release upload "$TAG" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Mint a scoped tap token
+        if: github.event_name == 'push'
         id: tap-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.CI_APP_ID }}
           private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
@@ -181,9 +186,10 @@ jobs:
           permission-contents: write
 
       - name: Update Homebrew tap
+        if: github.event_name == 'push'
         env:
           TAP_TOKEN: ${{ steps.tap-token.outputs.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.ref_name }}
           VERSION: ${{ steps.version.outputs.version }}
           SHA256: ${{ steps.asset.outputs.sha256 }}
         run: |
@@ -206,6 +212,7 @@ jobs:
           git push
 
       - name: Trust, install, and smoke Homebrew formula
+        if: github.event_name == 'push'
         run: |
           brew tap lambdasistemi/tap
           brew trust lambdasistemi/tap
