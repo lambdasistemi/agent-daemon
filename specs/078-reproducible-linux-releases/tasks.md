@@ -20,18 +20,18 @@
 
 ## Slice 2 — Cabal planner and workflow conversion
 
-- [ ] T007-S2 Establish RED proof for Cabal-only version authority, planner
+- [X] T007-S2 Establish RED proof for Cabal-only version authority, planner
   dry-run/version/changelog rules, and release-please rejection.
-- [ ] T008-S2 Implement and test the Cabal planner scripts and
+- [X] T008-S2 Implement and test the Cabal planner scripts and
   `release/cabal-release` App-token workflow, including immutable annotated
   tag and planner-created release behavior.
-- [ ] T009-S2 Atomically remove manifest/release-please/sync flow and update
+- [X] T009-S2 Atomically remove manifest/release-please/sync flow and update
   CI plus Nix workflow contracts for Cabal version consistency.
-- [ ] T010-S2 Add PR/default-manual build-and-smoke Linux/Darwin modes with
+- [X] T010-S2 Add PR/default-manual build-and-smoke Linux/Darwin modes with
   30-day review artifacts and no external mutation.
-- [ ] T011-S2 Add tag-only Linux attachment to the existing planner-created
+- [X] T011-S2 Add tag-only Linux attachment to the existing planner-created
   release, preserving Darwin/Homebrew's scoped, non-destructive publication.
-- [ ] T012-S2 Green focused planner/workflow RED-GREEN evidence, actionlint,
+- [X] T012-S2 Green focused planner/workflow RED-GREEN evidence, actionlint,
   flake checks, Linux artifact smoke, and the extended full gate in one
   reviewed commit.
 

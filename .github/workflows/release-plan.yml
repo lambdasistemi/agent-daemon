@@ -1,0 +1,45 @@
+name: Cabal release plan
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: cabal-release-plan-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  plan:
+    name: Plan Cabal release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint a scoped planner token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: lambdasistemi
+          repositories: tmux-ws
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+      - name: Configure planner identity
+        run: |
+          git config user.name "lambdasistemi-ci[bot]"
+          git config user.email "github-actions@github.com"
+      - name: Plan proposal or publish merged proposal
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: scripts/release/plan

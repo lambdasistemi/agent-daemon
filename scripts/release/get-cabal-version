@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cabal_file="$root/tmux-ws.cabal"
+
+test -f "$cabal_file" || {
+  printf 'missing Cabal file: %s\n' "$cabal_file" >&2
+  exit 1
+}
+
+version="$({
+  awk '
+    $1 == "version:" {
+      if ($2 !~ /^[0-9]+\.[0-9]+\.[0-9]+$/) exit 2
+      print $2
+      count += 1
+    }
+    END {
+      if (count != 1) exit 1
+    }
+  ' "$cabal_file"
+} )" || {
+  printf 'tmux-ws.cabal must contain exactly one strict three-component version\n' >&2
+  exit 1
+}
+
+printf '%s\n' "$version"
