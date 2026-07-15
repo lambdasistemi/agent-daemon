@@ -154,6 +154,15 @@ let
           fi
         done
         grep -Fq 'retention-days: 30' "$linux"
+        test "$(yq -r '.jobs."build-and-smoke"."runs-on"' "$linux")" = nixos
+        grep -Fq 'cachix/cachix-action@v17' "$linux"
+        grep -Fq 'name: paolino' "$linux"
+        # shellcheck disable=SC2016
+        grep -Fq 'authToken: ''${{ secrets.CACHIX_AUTH_TOKEN }}' "$linux"
+        if grep -Fq 'cachix/install-nix-action' "$linux"; then
+          echo 'workflow contract: hosted-runner Nix installer in Linux release workflow' >&2
+          exit 1
+        fi
         grep -Fq 'nix build -L .#linux-release-artifacts' "$linux"
         # shellcheck disable=SC2016
         grep -Fq 'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"' "$linux"
@@ -162,6 +171,8 @@ let
         grep -Fq "gh release upload \"\$TAG\" \"\$ASSET\" --clobber" "$darwin"
         grep -Fq 'scripts/release/get-cabal-version' "$darwin"
         grep -Fq 'bash scripts/render-homebrew-formulas.sh' "$darwin"
+        test "$(yq -r '.jobs."build-and-release"."runs-on"' "$darwin")" = macos-14
+        grep -Fq 'cachix/install-nix-action@v30' "$darwin"
       '';
     };
 

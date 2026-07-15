@@ -16,15 +16,18 @@ env:
 jobs:
   build-and-smoke:
     name: Build and smoke Linux artifacts
-    runs-on: ubuntu-latest
+    runs-on: nixos
     steps:
       - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Verify Cabal release consistency for a tag
         if: github.event_name == 'push'
         run: |
           test "${GITHUB_REF_NAME#v}" = "$(scripts/release/get-cabal-version)"
           scripts/release/check-version-consistency --mode publish
-      - uses: cachix/install-nix-action@v30
       - name: Build Linux artifacts
         run: nix build -L .#linux-release-artifacts
       - name: Smoke installed Linux artifacts

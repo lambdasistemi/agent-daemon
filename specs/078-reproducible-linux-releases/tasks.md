@@ -64,8 +64,17 @@
 - [X] T021-C2 Add a focused workflow-contract regression and green local
   checks, artifact smoke, full temporary gate, and hosted exact-head proof.
 
+## Corrective Slice 3.2 — NixOS Linux release-runner invariant
+
+- [X] T022-C3 Establish RED evidence that the Linux release build/smoke job
+  uses GitHub-hosted Ubuntu instead of the required self-hosted NixOS runner.
+- [X] T023-C3 Correct the Linux release job to use the established NixOS
+  runner/setup without changing build-only or tag-only publication boundaries.
+- [X] T024-C3 Add a focused runner-contract regression, pass the restored gate,
+  and obtain exact-head hosted Linux proof on the NixOS runner.
+
 ## Finalization
 
-- [ ] T022-O Audit all checked tasks, commit messages, PR body, exact
+- [ ] T025-O Audit all checked tasks, commit messages, PR body, exact
   artifact names, publication/rollback guarantees, local gate, and exact-head
   hosted CI; drop `gate.sh` only when the PR is ready for review.

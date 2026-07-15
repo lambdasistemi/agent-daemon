@@ -122,6 +122,21 @@ invocation from returning.
    then run RED/GREEN, Linux artifact smoke, the restored temporary gate, and
    exact-head hosted CI before finalizing again.
 
+## Corrective Slice 3.2 — NixOS Linux release-runner invariant
+
+**Owned files**: `.github/workflows/release.yml` and the smallest existing
+workflow contract check/test needed to prevent a hosted Ubuntu Linux release
+job from returning.
+
+1. Establish RED evidence that the Linux release build/smoke job uses
+   `ubuntu-latest`, contrary to the repository's NixOS Linux-runner pattern.
+2. Use the self-hosted `nixos` runner and its established Nix/Cachix setup for
+   the Linux build/smoke job. Preserve the current build-only PR/manual mode,
+   tag-only asset attachment, and Darwin's required macOS runner.
+3. Add focused static workflow coverage for the runner/setup invariant, then
+   run RED/GREEN, the restored temporary gate, and exact-head hosted proof on
+   the NixOS runner before finalizing again.
+
 ## Finalization
 
 The owner reviews each pair-approved commit, stamps the matching tasks into the
