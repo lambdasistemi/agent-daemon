@@ -26,12 +26,12 @@ jobs:
       - name: Verify Cabal release consistency for a tag
         if: github.event_name == 'push'
         run: |
-          test "${GITHUB_REF_NAME#v}" = "$(scripts/release/get-cabal-version)"
-          scripts/release/check-version-consistency --mode publish
+          test "${GITHUB_REF_NAME#v}" = "$(nix run --quiet .#release-consistency -- --version)"
+          nix run --quiet .#release-consistency -- --mode publish
       - name: Build Linux artifacts
         run: nix build -L .#linux-release-artifacts
       - name: Smoke installed Linux artifacts
-        run: nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"
+        run: nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(nix run --quiet .#release-consistency -- --version)"
       - name: Upload review artifacts
         uses: actions/upload-artifact@v4
         with:

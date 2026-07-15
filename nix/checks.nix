@@ -96,7 +96,15 @@ let
         pkgs.gnugrep
         pkgs.gnused
       ];
-      text = "bash scripts/release/check-version-consistency --mode proposal";
+      text = ''
+        if test "$#" = 0; then
+          bash scripts/release/check-version-consistency --mode proposal
+        elif test "$#" = 1 && test "$1" = --version; then
+          bash scripts/release/get-cabal-version
+        else
+          bash scripts/release/check-version-consistency "$@"
+        fi
+      '';
     };
 
     workflow-lint = {
@@ -163,9 +171,21 @@ let
           echo 'workflow contract: hosted-runner Nix installer in Linux release workflow' >&2
           exit 1
         fi
+        # shellcheck disable=SC2016
+        grep -Fq 'test "''${GITHUB_REF_NAME#v}" = "$(nix run --quiet .#release-consistency -- --version)"' "$linux"
+        grep -Fq 'nix run --quiet .#release-consistency -- --mode publish' "$linux"
         grep -Fq 'nix build -L .#linux-release-artifacts' "$linux"
         # shellcheck disable=SC2016
-        grep -Fq 'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"' "$linux"
+        grep -Fq 'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(nix run --quiet .#release-consistency -- --version)"' "$linux"
+        # shellcheck disable=SC2016
+        if grep -Fq '$(scripts/release/get-cabal-version)' "$linux"; then
+          echo 'workflow contract: bare Linux release version lookup outside Nix' >&2
+          exit 1
+        fi
+        if grep -Fq 'scripts/release/check-version-consistency --mode publish' "$linux"; then
+          echo 'workflow contract: bare Linux publish consistency outside Nix' >&2
+          exit 1
+        fi
         grep -Fq "gh release upload \"\$TAG\" result/* --clobber" "$linux"
         grep -Fq 'Wait for the planner-created GitHub release' "$darwin"
         grep -Fq "gh release upload \"\$TAG\" \"\$ASSET\" --clobber" "$darwin"

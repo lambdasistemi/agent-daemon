@@ -73,8 +73,18 @@
 - [X] T024-C3 Add a focused runner-contract regression, pass the restored gate,
   and obtain exact-head hosted Linux proof on the NixOS runner.
 
+## Corrective Slice 3.3 — Nix-owned Linux smoke version lookup
+
+- [X] T025-C4 Establish RED evidence that the NixOS-hosted smoke command uses
+  the bare runner `get-cabal-version` helper and fails without ambient `awk`.
+- [X] T026-C4 Derive the artifact version and tag-only publish consistency
+  validation through Nix-owned runtime closures without changing the
+  NixOS/Cachix, publication, or Darwin boundaries.
+- [X] T027-C4 Add focused workflow-contract coverage, pass the restored gate,
+  and obtain fresh exact-head hosted NixOS smoke proof.
+
 ## Finalization
 
-- [ ] T025-O Audit all checked tasks, commit messages, PR body, exact
+- [ ] T028-O Audit all checked tasks, commit messages, PR body, exact
   artifact names, publication/rollback guarantees, local gate, and exact-head
   hosted CI; drop `gate.sh` only when the PR is ready for review.
