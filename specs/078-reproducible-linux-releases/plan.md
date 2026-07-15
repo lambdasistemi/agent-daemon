@@ -137,6 +137,23 @@ job from returning.
    run RED/GREEN, the restored temporary gate, and exact-head hosted proof on
    the NixOS runner before finalizing again.
 
+## Corrective Slice 3.3 — Nix-owned Linux smoke version lookup
+
+**Owned files**: `.github/workflows/release.yml` and the smallest existing
+workflow contract check/test needed to prevent host-shell version lookup from
+returning.
+
+1. Reproduce the self-hosted NixOS smoke failure: the bare runner invocation of
+   `scripts/release/get-cabal-version` needs `awk`, which is not ambiently
+   available on the runner.
+2. Derive both the smoke artifact version and tag-only publish consistency
+   validation through Nix-owned runtime closures; do not add an ambient runner
+   package. Preserve the NixOS/Cachix Linux setup, exact named smoke arguments,
+   build-only PR/manual behavior, tag-only asset attachment, and Darwin's
+   macOS setup.
+3. Add focused workflow-contract coverage, then run RED/GREEN, the restored
+   temporary gate, and fresh exact-head hosted NixOS build-and-smoke proof.
+
 ## Finalization
 
 The owner reviews each pair-approved commit, stamps the matching tasks into the

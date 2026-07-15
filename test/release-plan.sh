@@ -72,7 +72,11 @@ assert_contains 'nix run --quiet .#release-consistency' "$root/.github/workflows
 assert_not_contains 'run: scripts/release/check-version-consistency --mode proposal' \
   "$root/.github/workflows/ci.yml"
 assert_contains 'release-consistency = {' "$root/nix/checks.nix"
-assert_contains 'text = "bash scripts/release/check-version-consistency --mode proposal";' \
+assert_contains 'bash scripts/release/check-version-consistency --mode proposal' \
+  "$root/nix/checks.nix"
+assert_contains 'bash scripts/release/get-cabal-version' \
+  "$root/nix/checks.nix"
+assert_contains 'bash scripts/release/check-version-consistency "$@"' \
   "$root/nix/checks.nix"
 
 reject_repo="$tmp/reject"
@@ -149,7 +153,17 @@ done
 linux_workflow="$root/.github/workflows/release.yml"
 # shellcheck disable=SC2016
 assert_contains \
-  'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"' \
+  'test "${GITHUB_REF_NAME#v}" = "$(nix run --quiet .#release-consistency -- --version)"' \
+  "$linux_workflow"
+assert_contains 'nix run --quiet .#release-consistency -- --mode publish' \
+  "$linux_workflow"
+# shellcheck disable=SC2016
+assert_contains \
+  'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(nix run --quiet .#release-consistency -- --version)"' \
+  "$linux_workflow"
+# shellcheck disable=SC2016
+assert_not_contains '$(scripts/release/get-cabal-version)' "$linux_workflow"
+assert_not_contains 'scripts/release/check-version-consistency --mode publish' \
   "$linux_workflow"
 assert_not_contains 'nix run .#linux-artifact-smoke -- result' "$linux_workflow"
 assert_contains 'actions/create-github-app-token@v1' \
