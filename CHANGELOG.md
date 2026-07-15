@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.4.0] (2026-07-15)
+
+### Release
+
+- chore: drop gate.sh (ready for review) (c5858fe)
+- fix: make release-plan test version-independent (127fa9c)
+- docs: specify release-proposal gate fix (2e69b9b)
+- chore: add gate.sh for issue 104 (917d9c9)
+- chore: drop gate.sh (ready for review) (a3edae6)
+- fix(release): run Linux smoke version lookup in Nix (eb7b0bb)
+- ci(release): use NixOS Linux runner (0d3128f)
+- fix(release): pass explicit Linux smoke inputs (28fbdf6)
+- docs: plan hosted Linux smoke correction (d5d495e)
+- revert: restore gate.sh after hosted smoke failure (4bcb680)
+- chore: drop gate.sh (ready for review) (ce9e1c5)
+- docs(release): document Linux release artifacts (c7cf4c4)
+- fix(ci): run release checks in Nix shell (0bc8281)
+- docs: plan hosted CI runtime correction (faed126)
+- feat(release): make publication Cabal-owned (c491892)
+- chore: extend gate.sh with Linux artifact smoke (a979d69)
+- feat(release): add Linux artifact packages (1d324c1)
+- docs: plan reproducible Linux releases (aa417cf)
+- chore: add gate.sh for issue 78 (8e7e288)
+- Merge pull request #100 from lambdasistemi/fix/99-release-v031-wording (d376c21)
+- chore: drop gate.sh (ready for review) (df505a3)
+- docs: describe v0.3.1 as published (5868f96)
+- docs: plan v0.3.1 published wording (fd07d1a)
+- chore: add gate.sh for release wording (b9a77cd)
+
+
 ## [0.3.1](https://github.com/lambdasistemi/tmux-ws/compare/v0.3.0...v0.3.1) (2026-07-13)
 
 ### Corrective packaging release
