@@ -1,8 +1,50 @@
 # Release and migration
 
-## New installations
+v0.4.0 is imminent but not yet published. Do not assume a `v0.4.0` tag or its
+assets exist until they appear through the stable
+[latest-release link](https://github.com/lambdasistemi/tmux-ws/releases/latest)
+or [release history](https://github.com/lambdasistemi/tmux-ws/releases).
 
-Install the primary product with Homebrew:
+The permanent operator flow is documented in the stable
+[installation guide](https://lambdasistemi.github.io/tmux-ws/docs/installation/)
+and [touch usage guide](https://lambdasistemi.github.io/tmux-ws/docs/usage/).
+
+## Expected v0.4.0 routes
+
+Once v0.4.0 is published, its Linux release contract is expected to include:
+
+- `tmux-ws-0.4.0-x86_64-linux.AppImage`
+- `tmux-ws-0.4.0-x86_64-linux.deb`
+- `tmux-ws-0.4.0-x86_64-linux.rpm`
+- the stable `tmux-ws.AppImage` copy
+- `SHA256SUMS` covering the versioned packages and both AppImage names
+
+Download the checksum file and selected asset from the same release. Verify
+before execution or installation:
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+Run a verified versioned or stable AppImage with:
+
+```bash
+chmod +x tmux-ws-0.4.0-x86_64-linux.AppImage
+./tmux-ws-0.4.0-x86_64-linux.AppImage --help
+
+chmod +x tmux-ws.AppImage
+./tmux-ws.AppImage --help
+```
+
+Install a verified package through the distribution package manager:
+
+```bash
+sudo apt install ./tmux-ws-0.4.0-x86_64-linux.deb
+sudo dnf install ./tmux-ws-0.4.0-x86_64-linux.rpm
+tmux-ws --help
+```
+
+The macOS route remains the primary Homebrew formula:
 
 ```bash
 brew update
@@ -10,71 +52,13 @@ brew install lambdasistemi/tap/tmux-ws
 tmux-ws --help
 ```
 
-NixOS users should configure `services.tmux-ws` and enable the `tmux-ws`
-systemd service.
+NixOS operators use `services.tmux-ws` and rebuild their configuration as
+described in [deployment](deployment.md). Nix users can run the repository flake
+directly.
 
-## Future Linux release artifacts
+## Upgrade and reconnect
 
-Future Linux releases provide
-`tmux-ws-<version>-x86_64-linux.AppImage`,
-`tmux-ws-<version>-x86_64-linux.deb`,
-`tmux-ws-<version>-x86_64-linux.rpm`, `SHA256SUMS`, and the stable
-`tmux-ws.AppImage` path. Download the matching assets and verify the checksum
-before using an AppImage:
-
-```bash
-sha256sum -c SHA256SUMS --ignore-missing
-chmod +x tmux-ws-<version>-x86_64-linux.AppImage
-./tmux-ws-<version>-x86_64-linux.AppImage --help
-```
-
-The stable path is the same AppImage under an unversioned name:
-
-```bash
-chmod +x tmux-ws.AppImage
-./tmux-ws.AppImage --help
-```
-
-On Debian or Ubuntu, install the downloaded package and then use the canonical
-`tmux-ws` executable:
-
-```bash
-sudo apt install ./tmux-ws-<version>-x86_64-linux.deb
-tmux-ws --help
-```
-
-On an RPM-based distribution, use the equivalent RPM package:
-
-```bash
-sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
-tmux-ws --help
-```
-
-Pull requests and default manual runs build and smoke artifacts only. They do
-not publish production assets. A future immutable `v*` tag attaches production assets only to the planner-created release.
-The attachment is idempotent and does not delete or recreate that release.
-This PR does not publish, dispatch, retag, rewrite releases, or mutate a tap.
-
-`v0.3.0` is immutable and remains unchanged, and will not be rewritten or deleted.
-`v0.3.1` is published with the canonical `tmux-ws-0.3.1-aarch64-darwin.tar.gz` Darwin asset and an
-updated Homebrew tap formula. The release workflow used that formula to
-update the real Homebrew tap. After an upgrade, restart the daemon
-(`systemctl restart tmux-ws` on NixOS) and
-reload the browser document on Chrome tablets to fetch the updated SPA. See
-[deployment](deployment.md), [Tailscale HTTPS](tailscale.md), and the
-[installation guide](index.md#quick-start) for the linked operator flow.
-
-## Corrective-release compatibility
-
-This corrective release keeps `agent-daemon` only as a bounded compatibility
-route. Existing Homebrew command users can run `agent-daemon --help`; it
-forwards to the installed `tmux-ws` binary without adding a second daemon.
-Existing NixOS configurations using `services.agent-daemon` are accepted as a
-renamed option and configure the single `services.tmux-ws` service.
-
-### Existing Homebrew users
-
-Existing `tmux-ws` users can update and upgrade the installed primary formula:
+Existing Homebrew users upgrade the primary formula:
 
 ```bash
 brew update
@@ -82,31 +66,56 @@ brew upgrade tmux-ws
 tmux-ws --help
 ```
 
-Existing legacy-only `agent-daemon` users must install the primary formula
-first, migrate scripts, then choose one compatibility path:
+Linux artifact users fetch the new artifact and matching `SHA256SUMS`, verify
+them, then replace the AppImage or install the package with `apt`/`dnf`. NixOS
+users update the pinned input and rebuild.
+
+After any service-backed upgrade, restart and verify the daemon:
+
+```bash
+sudo systemctl restart tmux-ws
+systemctl status tmux-ws
+```
+
+Then reload the browser document. The in-app **Refresh** action only refreshes
+tmux state. On a tablet, use a browser hard refresh—or fully close and reopen
+the tab—before reconnecting to a recovered tmux session.
+
+## Published history and compatibility
+
+`v0.3.0` is immutable and will not be rewritten or deleted. `v0.3.1` is the
+published corrective version with the canonical
+`tmux-ws-0.3.1-aarch64-darwin.tar.gz` asset. Its release workflow used the
+shared formula renderer to update the real Homebrew tap.
+
+That corrective release keeps `agent-daemon` only as a bounded compatibility
+route. The command forwards to the installed `tmux-ws` binary; the renamed
+NixOS option configures the single `services.tmux-ws` service. New users should
+not install or enable a second legacy daemon.
+
+### Legacy Homebrew users
+
+Install the primary formula first and migrate scripts. If the deprecated alias
+is still temporarily required:
 
 ```bash
 brew update
 brew install lambdasistemi/tap/tmux-ws
-tmux-ws --help
-# Keep the deprecated command alias temporarily:
 brew upgrade agent-daemon
 agent-daemon --help
 ```
 
-Or, after migration, remove the compatibility formula:
+After migration, remove the compatibility formula:
 
 ```bash
 brew uninstall agent-daemon
 tmux-ws --help
 ```
 
-The deprecated `agent-daemon` formula is not the new-install default.
+### Legacy NixOS users
 
-### Existing NixOS users
-
-Rename `services.agent-daemon` to `services.tmux-ws` in your configuration,
-then rebuild and verify the single new unit:
+Rename `services.agent-daemon` to `services.tmux-ws`, rebuild, and operate the
+single primary unit:
 
 ```bash
 sudo nixos-rebuild switch
@@ -115,9 +124,5 @@ systemctl status tmux-ws
 systemctl is-active tmux-ws
 ```
 
-Do not start `agent-daemon.service`: the renamed option creates only
-`tmux-ws.service`.
-
-Move configurations and scripts to `services.tmux-ws`, `systemctl restart
-tmux-ws`, and `tmux-ws`. The legacy compatibility route is limited to this
-corrective release; its removal requires a separately reviewed migration ticket.
+The compatibility route is limited to the corrective release; removal requires
+a separately reviewed migration ticket.

@@ -1,5 +1,5 @@
 site_name: tmux-ws
-site_url: https://lambdasistemi.github.io/tmux-ws/docs
+site_url: https://lambdasistemi.github.io/tmux-ws/docs/
 repo_url: https://github.com/lambdasistemi/tmux-ws
 repo_name: lambdasistemi/tmux-ws
 
@@ -20,13 +20,28 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  features:
+    - navigation.indexes
+    - navigation.sections
+    - navigation.path
+    - toc.integrate
+    - content.code.copy
+
+plugins:
+  - search
 
 nav:
-  - Home: index.md
-  - Design: design.md
-  - Deployment: deployment.md
-  - Tailscale HTTPS: tailscale.md
-  - Release and migration: release.md
+    - Home: index.md
+    - User:
+        - Installation: installation.md
+        - Touch usage: usage.md
+    - Operator:
+        - Deployment: deployment.md
+        - Tailscale HTTPS: tailscale.md
+        - Release and migration: release.md
+    - Developer:
+        - Development: development.md
+        - Design: design.md
 
 markdown_extensions:
   - pymdownx.highlight
