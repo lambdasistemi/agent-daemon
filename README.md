@@ -6,19 +6,24 @@
 REST/WebSocket API from the same origin. Open the SPA from the daemon URL
 itself to manage local tmux sessions from a browser.
 
-## Documentation
+## Install and quick start
 
-See the [full documentation](https://lambdasistemi.github.io/tmux-ws/docs/).
+Download published builds from the
+[latest release](https://github.com/lambdasistemi/tmux-ws/releases/latest).
 
-## Quick start
+### Linux AppImage
+
+The stable AppImage name tracks the latest release:
 
 ```bash
-nix develop
-just build
-tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
+curl -LO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
+curl -LO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+chmod +x tmux-ws.AppImage
+./tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir /code
 ```
 
-Then open the daemon URL in a browser on the same machine:
+Open the daemon URL in a browser on the same machine:
 
 ```
 http://127.0.0.1:8080/
@@ -27,6 +32,53 @@ http://127.0.0.1:8080/
 For another device, expose that same daemon origin through a reverse proxy such
 as Tailscale Serve and open the proxied URL directly. In both modes, the URL
 serves the SPA and API together.
+
+### Native Linux packages
+
+Release v0.4.0 also provides native x86_64 DEB and RPM packages:
+
+```bash
+curl -LO https://github.com/lambdasistemi/tmux-ws/releases/download/v0.4.0/tmux-ws-0.4.0-x86_64-linux.deb
+sudo apt install ./tmux-ws-0.4.0-x86_64-linux.deb
+
+curl -LO https://github.com/lambdasistemi/tmux-ws/releases/download/v0.4.0/tmux-ws-0.4.0-x86_64-linux.rpm
+sudo dnf install ./tmux-ws-0.4.0-x86_64-linux.rpm
+```
+
+### macOS with Homebrew
+
+```bash
+brew install lambdasistemi/tap/tmux-ws
+```
+
+The formula is backed by the v0.4.0 release artifact
+`tmux-ws-0.4.0-aarch64-darwin.tar.gz`.
+
+After installing a native package or the Homebrew formula, launch with:
+
+```bash
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
+```
+
+Then open `http://127.0.0.1:8080/` on the same machine, or expose that same
+origin with Tailscale Serve for another device. The browser must open the
+daemon origin so the SPA and API remain same-origin.
+
+See the [full documentation](https://lambdasistemi.github.io/tmux-ws/docs/)
+and the [NixOS deployment guide](https://lambdasistemi.github.io/tmux-ws/docs/deployment/)
+for configuration and unattended operation.
+
+## Build from source
+
+With Nix installed:
+
+```bash
+nix develop
+just build
+```
+
+Then launch the resulting `tmux-ws` executable with the native command shown
+above.
 
 ## Session Recovery
 
