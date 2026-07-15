@@ -28,7 +28,7 @@ jobs:
       - name: Build Linux artifacts
         run: nix build -L .#linux-release-artifacts
       - name: Smoke installed Linux artifacts
-        run: nix run .#linux-artifact-smoke -- result
+        run: nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"
       - name: Upload review artifacts
         uses: actions/upload-artifact@v4
         with:

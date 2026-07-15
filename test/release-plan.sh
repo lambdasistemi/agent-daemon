@@ -146,6 +146,12 @@ for workflow in .github/workflows/release.yml .github/workflows/darwin-release.y
   assert_not_contains 'gh release delete' "$root/$workflow"
   assert_not_contains 'gh release create' "$root/$workflow"
 done
+linux_workflow="$root/.github/workflows/release.yml"
+# shellcheck disable=SC2016
+assert_contains \
+  'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"' \
+  "$linux_workflow"
+assert_not_contains 'nix run .#linux-artifact-smoke -- result' "$linux_workflow"
 assert_contains 'actions/create-github-app-token@v1' \
   "$root/.github/workflows/release-plan.yml"
 assert_contains 'scripts/release/plan' "$root/.github/workflows/release-plan.yml"

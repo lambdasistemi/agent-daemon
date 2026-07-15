@@ -155,7 +155,8 @@ let
         done
         grep -Fq 'retention-days: 30' "$linux"
         grep -Fq 'nix build -L .#linux-release-artifacts' "$linux"
-        grep -Fq 'nix run .#linux-artifact-smoke -- result' "$linux"
+        # shellcheck disable=SC2016
+        grep -Fq 'nix run .#linux-artifact-smoke -- --artifacts-dir "$(readlink -f result)" --artifact-version "$(scripts/release/get-cabal-version)"' "$linux"
         grep -Fq "gh release upload \"\$TAG\" result/* --clobber" "$linux"
         grep -Fq 'Wait for the planner-created GitHub release' "$darwin"
         grep -Fq "gh release upload \"\$TAG\" \"\$ASSET\" --clobber" "$darwin"

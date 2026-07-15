@@ -55,13 +55,13 @@
 
 ## Corrective Slice 3.1 — hosted Linux smoke invocation contract
 
-- [ ] T019-C2 Establish RED evidence that the PR-mode release workflow's
+- [X] T019-C2 Establish RED evidence that the PR-mode release workflow's
   positional `linux-artifact-smoke -- result` invocation is rejected by the
   app's named-option contract.
-- [ ] T020-C2 Correct the Linux workflow to derive and pass the artifact
-  directory and version through the smoke app's explicit interface, without
-  changing build-only or tag-only publication boundaries.
-- [ ] T021-C2 Add a focused workflow-contract regression and green local
+- [X] T020-C2 Correct the Linux workflow to derive and pass the absolute
+  artifact directory and version through the smoke app's explicit interface,
+  without changing build-only or tag-only publication boundaries.
+- [X] T021-C2 Add a focused workflow-contract regression and green local
   checks, artifact smoke, full temporary gate, and hosted exact-head proof.
 
 ## Finalization

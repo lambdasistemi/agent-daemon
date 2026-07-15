@@ -114,9 +114,10 @@ invocation from returning.
 1. Reproduce the hosted PR-mode command shape: `nix run
    .#linux-artifact-smoke -- result` is invalid because the smoke app accepts
    only `--artifacts-dir DIR --artifact-version VERSION`.
-2. Pass the release artifact directory and Cabal/version-derived artifact
-   version through those explicit flags. Preserve the PR/manual build-and-smoke
-   mode and tag-only release attachment boundary.
+2. Pass the absolute release artifact directory (the smoke app changes into a
+   temporary directory) and Cabal/version-derived artifact version through
+   those explicit flags. Preserve the PR/manual build-and-smoke mode and
+   tag-only release attachment boundary.
 3. Add static or focused workflow-contract coverage for the named invocation,
    then run RED/GREEN, Linux artifact smoke, the restored temporary gate, and
    exact-head hosted CI before finalizing again.
