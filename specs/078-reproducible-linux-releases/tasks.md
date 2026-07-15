@@ -85,6 +85,6 @@
 
 ## Finalization
 
-- [ ] T028-O Audit all checked tasks, commit messages, PR body, exact
+- [X] T028-O Audit all checked tasks, commit messages, PR body, exact
   artifact names, publication/rollback guarantees, local gate, and exact-head
   hosted CI; drop `gate.sh` only when the PR is ready for review.
