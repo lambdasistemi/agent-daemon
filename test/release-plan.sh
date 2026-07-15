@@ -37,8 +37,20 @@ for script in get-cabal-version extract-notes check-version-consistency plan; do
     || fail "missing executable scripts/release/$script"
 done
 
+expected_live_version="$({
+  awk '
+    $1 == "version:" {
+      print $2
+      count += 1
+    }
+    END {
+      if (count != 1) exit 1
+    }
+  ' "$root/tmux-ws.cabal"
+} )" || fail 'tmux-ws.cabal must contain exactly one version field'
 version="$(bash "$root/scripts/release/get-cabal-version")"
-test "$version" = 0.3.1 || fail "expected Cabal version 0.3.1, got $version"
+test "$version" = "$expected_live_version" \
+  || fail "expected Cabal version $expected_live_version, got $version"
 
 notes="$tmp/notes.md"
 bash "$root/scripts/release/extract-notes" "$version" > "$notes"
@@ -46,17 +58,33 @@ test -s "$notes" || fail 'matching changelog notes are empty'
 expect_fail 'missing changelog section' \
   bash "$root/scripts/release/extract-notes" 9.9.9
 
+fixture_baseline_version=0.3.1
+fixture_release_version=0.4.0
+
 make_repo() {
   local repo="$1"
   mkdir -p "$repo/scripts"
   cp "$root/tmux-ws.cabal" "$root/CHANGELOG.md" "$repo/"
   cp -R --no-preserve=mode "$root/scripts/release" "$repo/scripts/"
+  sed -E -i "s/^(version:[[:space:]]*).*/\1${fixture_baseline_version}/" \
+    "$repo/tmux-ws.cabal"
+  {
+    printf '# Changelog\n\n'
+    awk -v heading="## [$fixture_baseline_version]" '
+      index($0, heading) == 1 { found = 1 }
+      found { print }
+      END { if (!found) exit 1 }
+    ' "$repo/CHANGELOG.md"
+  } > "$repo/CHANGELOG.fixture" \
+    || fail "missing fixture baseline changelog $fixture_baseline_version"
+  mv "$repo/CHANGELOG.fixture" "$repo/CHANGELOG.md"
   git -C "$repo" init --quiet --initial-branch main
   git -C "$repo" config user.name test
   git -C "$repo" config user.email test@example.invalid
   git -C "$repo" add .
   git -C "$repo" commit --quiet -m 'chore: baseline release'
-  git -C "$repo" tag -a v0.3.1 -m 'Release v0.3.1'
+  git -C "$repo" tag -a "v$fixture_baseline_version" \
+    -m "Release v$fixture_baseline_version"
 }
 
 bash "$root/scripts/release/check-version-consistency" --mode proposal
@@ -93,7 +121,7 @@ printf 'proposal fixture\n' > "$proposal_repo/feature.txt"
 git -C "$proposal_repo" add feature.txt
 git -C "$proposal_repo" commit --quiet -m 'feat: add release planner fixture'
 bash "$proposal_repo/scripts/release/plan" --dry-run > "$tmp/proposal.out"
-assert_contains 'proposal version=0.4.0' "$tmp/proposal.out"
+assert_contains "proposal version=$fixture_release_version" "$tmp/proposal.out"
 assert_contains 'release/cabal-release' "$tmp/proposal.out"
 test "$(git -C "$proposal_repo" branch --show-current)" = main \
   || fail 'dry-run changed the checked-out branch'
@@ -102,16 +130,17 @@ test "$(git -C "$proposal_repo" status --porcelain)" = '' \
 
 publish_repo="$tmp/publish"
 make_repo "$publish_repo"
-sed -i 's/^version:[[:space:]]*0\.3\.1/version:         0.4.0/' \
+sed -E -i "s/^(version:[[:space:]]*).*/\1${fixture_release_version}/" \
   "$publish_repo/tmux-ws.cabal"
 {
   head -n 1 "$publish_repo/CHANGELOG.md"
-  printf '\n## [0.4.0] (test)\n\n### Features\n\n- planner fixture\n\n'
+  printf '\n## [%s] (test)\n\n### Features\n\n- planner fixture\n\n' \
+    "$fixture_release_version"
   tail -n +2 "$publish_repo/CHANGELOG.md"
 } > "$publish_repo/CHANGELOG.next"
 mv "$publish_repo/CHANGELOG.next" "$publish_repo/CHANGELOG.md"
 git -C "$publish_repo" add tmux-ws.cabal CHANGELOG.md
-git -C "$publish_repo" commit --quiet -m 'chore: release 0.4.0'
+git -C "$publish_repo" commit --quiet -m "chore: release $fixture_release_version"
 git -C "$publish_repo" init --bare --quiet "$tmp/publish-remote.git"
 git -C "$publish_repo" remote add origin "$tmp/publish-remote.git"
 git -C "$publish_repo" push --quiet -u origin main --tags
@@ -132,15 +161,16 @@ EOF
 chmod +x "$mock_bin/gh"
 GH_LOG="$tmp/gh.log" GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
   bash "$publish_repo/scripts/release/plan" > "$tmp/publish.out"
-git -C "$publish_repo" rev-parse -q --verify refs/tags/v0.4.0 >/dev/null \
+git -C "$publish_repo" rev-parse -q \
+  --verify "refs/tags/v$fixture_release_version" >/dev/null \
   || fail 'planner did not create the annotated release tag'
-assert_contains 'release create v0.4.0' "$tmp/gh.log"
+assert_contains "release create v$fixture_release_version" "$tmp/gh.log"
 assert_not_contains 'release delete' "$tmp/gh.log"
 
-before="$(grep -Fc 'release create v0.4.0' "$tmp/gh.log")"
+before="$(grep -Fc "release create v$fixture_release_version" "$tmp/gh.log")"
 GH_LOG="$tmp/gh.log" GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
   bash "$publish_repo/scripts/release/plan" > "$tmp/publish-repeat.out"
-after="$(grep -Fc 'release create v0.4.0' "$tmp/gh.log")"
+after="$(grep -Fc "release create v$fixture_release_version" "$tmp/gh.log")"
 test "$before" = "$after" || fail 're-running publication created a release'
 
 for workflow in .github/workflows/release.yml .github/workflows/darwin-release.yml; do
