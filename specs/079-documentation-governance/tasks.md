@@ -2,13 +2,13 @@
 
 ## Slice 1 — strict documentation delivery and preview lifecycle
 
-- [ ] T001-S1 Establish RED workflow-contract evidence for the absent PR docs
+- [X] T001-S1 Establish RED workflow-contract evidence for the absent PR docs
   events, always-present docs job, shared preview publish, and close cleanup.
-- [ ] T002-S1 Implement strict PR/main/manual documentation delivery with every
+- [X] T002-S1 Implement strict PR/main/manual documentation delivery with every
   Linux/docs job on `nixos`, preserving Pages workflow mode.
-- [ ] T003-S1 Permanently validate events, job/context names, runners, action
+- [X] T003-S1 Permanently validate events, job/context names, runners, action
   versions, preview publish/cleanup, permissions, and no conditional path gap.
-- [ ] T004-S1 Green focused workflow lint, strict docs/site build, localhost
+- [X] T004-S1 Green focused workflow lint, strict docs/site build, localhost
   preview smoke, full flake checks, and the temporary gate.
 
 ## Slice 2 — touch-first onboarding and release guidance

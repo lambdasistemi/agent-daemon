@@ -126,6 +126,59 @@ let
         plan=.github/workflows/release-plan.yml
         linux=.github/workflows/release.yml
         darwin=.github/workflows/darwin-release.yml
+        pages=.github/workflows/pages.yml
+
+        require_equal() {
+          if test "$1" != "$2"; then
+            printf 'workflow contract: %s (expected %s, got %s)\n' "$3" "$2" "$1" >&2
+            exit 1
+          fi
+        }
+        require_command_line() {
+          if ! grep -Fxq "$1" <<<"$2"; then
+            printf 'workflow contract: missing %s\n' "$3" >&2
+            exit 1
+          fi
+        }
+
+        require_equal "$(yq -r '(.on.pull_request.branches // []) | join(",")' "$pages")" main 'Pages pull-request main target'
+        require_equal "$(yq -r '(.on.pull_request.types // []) | join(",")' "$pages")" opened,synchronize,reopened,closed 'Pages pull-request lifecycle events'
+        require_equal "$(yq -r '(.on.pull_request // {}) | has("paths")' "$pages")" false 'Pages pull-request paths filter absence'
+        require_equal "$(yq -r '(.on.pull_request // {}) | has("paths-ignore")' "$pages")" false 'Pages pull-request paths-ignore filter absence'
+        require_equal "$(yq -r '(.on.push.branches // []) | join(",")' "$pages")" main 'Pages push main target'
+        require_equal "$(yq -r '.on | has("workflow_dispatch")' "$pages")" true 'Pages manual dispatch trigger'
+
+        require_equal "$(yq -r '.jobs.build.name // ""' "$pages")" 'Docs build' 'Pages required check name'
+        require_equal "$(yq -r '.jobs.build."runs-on" // ""' "$pages")" nixos 'Pages docs-build runner'
+        require_equal "$(yq -r '.jobs | to_entries | map(select(.value."runs-on" != "nixos")) | length' "$pages")" 0 'all Pages workflow runners are nixos'
+        require_equal "$(yq -r '.jobs.build.if // ""' "$pages")" "github.event_name != 'pull_request' || github.event.action != 'closed'" 'Pages build skips only closed pull requests'
+        require_equal "$(yq -r '.jobs.deploy.if // ""' "$pages")" "github.event_name != 'pull_request'" 'Pages deploy excludes pull requests'
+        require_equal "$(yq -r '.jobs.cleanup.if // ""' "$pages")" "github.event_name == 'pull_request' && github.event.action == 'closed'" 'Pages cleanup runs on closed pull requests'
+
+        require_equal "$(yq -r '[.jobs[].steps[]? | select(.uses == "actions/checkout@v6")] | length' "$pages")" 1 'Pages checkout v6 action'
+        require_equal "$(yq -r '[.jobs[].steps[]? | select(.uses == "cachix/cachix-action@v17")] | length' "$pages")" 1 'Pages Cachix v17 action'
+        require_equal "$(yq -r '[.jobs[].steps[]? | select(.uses == "paolino/dev-assets/static-preview@main")] | length' "$pages")" 2 'Pages shared preview publish and cleanup actions'
+        require_equal "$(yq -r '[.jobs[].steps[]? | select(.uses == "actions/upload-pages-artifact@v5")] | length' "$pages")" 1 'Pages artifact upload v5 action'
+        require_equal "$(yq -r '[.jobs[].steps[]? | select(.uses == "actions/deploy-pages@v5")] | length' "$pages")" 1 'Pages deploy v5 action'
+
+        build_command="$(yq -r '.jobs.build.steps[]? | select(.name == "Build site") | .run' "$pages")"
+        require_command_line 'nix build --quiet .#site' "$build_command" 'quiet site build command'
+        require_command_line 'cp -R -L result/. site/' "$build_command" 'writable site artifact copy'
+        require_command_line 'chmod -R u+w site' "$build_command" 'writable site artifact permissions'
+        require_equal "$(yq -r '.jobs.build.steps[]? | select(.uses == "paolino/dev-assets/static-preview@main") | .if // ""' "$pages")" "github.event_name == 'pull_request'" 'Pages preview publish condition'
+        require_equal "$(yq -r '.jobs.build.steps[]? | select(.uses == "paolino/dev-assets/static-preview@main") | .with.path // ""' "$pages")" site 'Pages preview source path'
+        require_equal "$(yq -r '.jobs.build.steps[]? | select(.uses == "actions/upload-pages-artifact@v5") | .if // ""' "$pages")" "github.event_name != 'pull_request'" 'Pages artifact upload condition'
+        require_equal "$(yq -r '.jobs.build.steps[]? | select(.uses == "actions/upload-pages-artifact@v5") | .with.path // ""' "$pages")" site 'Pages upload source path'
+        require_equal "$(yq -r '.jobs.cleanup.steps[]? | select(.uses == "paolino/dev-assets/static-preview@main") | .with.mode // ""' "$pages")" cleanup 'Pages preview cleanup mode'
+        require_equal "$(yq -r '.jobs.deploy.needs // ""' "$pages")" build 'Pages deploy build dependency'
+        require_equal "$(yq -r '.jobs.deploy.environment.name // ""' "$pages")" github-pages 'Pages deployment environment'
+
+        require_equal "$(yq -r '.permissions.contents // ""' "$pages")" read 'Pages contents permission'
+        require_equal "$(yq -r '.permissions.pages // ""' "$pages")" write 'Pages deployment permission'
+        require_equal "$(yq -r '.permissions."id-token" // ""' "$pages")" write 'Pages identity-token permission'
+        require_equal "$(yq -r '.permissions.issues // ""' "$pages")" write 'Pages issue-comment permission'
+        require_equal "$(yq -r '.permissions."pull-requests" // ""' "$pages")" write 'Pages pull-request-comment permission'
+        require_equal "$(yq -r '.concurrency."cancel-in-progress"' "$pages")" false 'Pages and preview concurrency cancellation policy'
 
         for obsolete in .github/workflows/sync-cabal-version.yml release-please-config.json .release-please-manifest.json; do
           test ! -e "$obsolete" || { echo "workflow contract: obsolete artifact $obsolete" >&2; exit 1; }
