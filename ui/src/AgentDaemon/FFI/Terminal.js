@@ -160,7 +160,9 @@ const installCommandDeckHandling = (controller) => {
 
   const onClick = (event) => {
     const control = commandDeckControl(event);
-    if (!control || event.detail !== 0) return;
+    // Touch generates a detail=0 click after pointerdown; only keyboard clicks
+    // should take this fallback path because pointerdown already sent the key.
+    if (!control || event.detail !== 0 || event.pointerType) return;
     const key = control.dataset.commandDeckKey;
     if (key) dispatchCommandDeckKey(controller, key);
   };

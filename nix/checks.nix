@@ -71,6 +71,7 @@ let
           export UI_BUNDLE=${uiBundle} NODE_PATH=${pkgs.playwright-test}/lib/node_modules
           export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers} PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
           node --test ui/test/CommandDeckLayout.test.mjs
+          node --test ui/test/CommandDeckInteraction.test.mjs
           node --test ui/test/ContextBottomMenus.test.mjs
           node --test ui/test/PreviewFixture.test.mjs
         fi
