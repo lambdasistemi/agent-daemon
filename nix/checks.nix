@@ -72,6 +72,7 @@ let
           export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers} PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
           node --test ui/test/CommandDeckLayout.test.mjs
           node --test ui/test/ContextBottomMenus.test.mjs
+          node --test ui/test/PreviewFixture.test.mjs
         fi
       '';
     };
@@ -127,6 +128,58 @@ let
         plan=.github/workflows/release-plan.yml
         linux=.github/workflows/release.yml
         darwin=.github/workflows/darwin-release.yml
+
+        require_value() {
+          actual="$(yq -r "$2" "$1")"
+          test "$actual" = "$3" || {
+            printf 'workflow contract: %s (expected %s, got %s)\n' "$4" "$3" "$actual" >&2
+            exit 1
+          }
+        }
+        require_query() {
+          yq -e "$2" "$1" >/dev/null || {
+            printf 'workflow contract: missing %s\n' "$3" >&2
+            exit 1
+          }
+        }
+        require_job_literal() {
+          grep -Fq "$1" <<<"$preview_runs" || {
+            printf 'workflow contract: PR preview job missing %s\n' "$2" >&2
+            exit 1
+          }
+        }
+
+        require_value "$ci" '.jobs."pr-preview".if' "github.event_name == 'pull_request'" 'PR-only preview condition'
+        require_value "$ci" '.jobs."pr-preview"."runs-on"' nixos 'PR preview nixos runner'
+        require_value "$ci" '.jobs."pr-preview".needs' build-gate 'PR preview build-gate dependency'
+        require_value "$ci" '.jobs."pr-preview".permissions.contents' read 'PR preview contents permission'
+        require_value "$ci" '.jobs."pr-preview".permissions.issues' write 'PR preview issues permission'
+        require_value "$ci" '.jobs."pr-preview".permissions."pull-requests"' write 'PR preview pull-request permission'
+        require_value "$ci" '.jobs."pr-preview".permissions | keys | sort | join(",")' 'contents,issues,pull-requests' 'PR preview minimal permissions'
+        require_query "$ci" '.jobs."pr-preview".steps[] | select(.uses == "actions/checkout@v6")' 'PR preview checkout step'
+        require_query "$ci" '.jobs."pr-preview".steps[] | select(.uses == "cachix/cachix-action@v17" and .with.name == "paolino")' 'PR preview Cachix step'
+        require_query "$ci" '.jobs."pr-preview".steps[] | select(.uses == "paolino/dev-assets/static-preview@main" and .with.comment == true)' 'shared static-preview publication step with comment'
+        preview_path="$(yq -r '.jobs."pr-preview".steps[] | select(.uses == "paolino/dev-assets/static-preview@main") | .with.path' "$ci")"
+        if test "''${preview_path##*/}" != tmux-ws-pr-preview || ! grep -Fq runner.temp <<<"$preview_path"; then
+          echo 'workflow contract: static-preview must publish the writable runner-temp directory' >&2
+          exit 1
+        fi
+        preview_runs="$(yq -r '.jobs."pr-preview".steps[] | select(has("run")) | .run' "$ci")"
+        require_job_literal 'nix build --quiet .#site' 'site build'
+        require_job_literal "cp -RL result/. \"\$preview_dir/\"" 'dereferenced result copy'
+        require_job_literal "chmod -R u+w \"\$preview_dir\"" 'writable preview copy'
+        require_job_literal "cp ui/preview/fixture.js \"\$preview_dir/fixture.js\"" 'fixture copy'
+        require_job_literal '<script src="fixture.js"></script>' 'fixture script injection'
+        require_job_literal 'index.js' 'production script injection anchor'
+        preview_job="$(yq -o=json -I=0 '.jobs."pr-preview"' "$ci")"
+        if grep -Eiq 'actions/(upload|deploy)-pages|github-pages|mkdocs[^";]*deploy|deploy-docs|gh release|git tag|scripts/release|systemctl|/opt/services' <<<"$preview_job"; then
+          echo 'workflow contract: deployment or release mutation in PR preview job' >&2
+          exit 1
+        fi
+        if grep -Fq 'fixture.js' ui/dist/index.html; then
+          echo 'workflow contract: production UI must not load the illustrative fixture' >&2
+          exit 1
+        fi
 
         for obsolete in .github/workflows/sync-cabal-version.yml release-please-config.json .release-please-manifest.json; do
           test ! -e "$obsolete" || { echo "workflow contract: obsolete artifact $obsolete" >&2; exit 1; }

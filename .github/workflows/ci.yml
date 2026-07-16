@@ -108,6 +108,39 @@ jobs:
       - name: Lint workflows
         run: nix run --quiet .#workflow-lint
 
+  pr-preview:
+    name: PR UI preview
+    if: github.event_name == 'pull_request'
+    needs: build-gate
+    runs-on: nixos
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/cachix-action@v17
+        with:
+          name: paolino
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build static site
+        run: nix build --quiet .#site
+      - name: Prepare illustrative preview
+        run: |
+          set -euo pipefail
+          preview_dir="$RUNNER_TEMP/tmux-ws-pr-preview"
+          rm -rf "$preview_dir"
+          mkdir -p "$preview_dir"
+          cp -RL result/. "$preview_dir/"
+          chmod -R u+w "$preview_dir"
+          cp ui/preview/fixture.js "$preview_dir/fixture.js"
+          sed -i 's#  <script src="index.js#  <script src="fixture.js"></script>\n  <script src="index.js#' "$preview_dir/index.html"
+          grep -Fq '<script src="fixture.js"></script>' "$preview_dir/index.html"
+      - uses: paolino/dev-assets/static-preview@main
+        with:
+          path: ${{ runner.temp }}/tmux-ws-pr-preview
+          comment: true
+
   dev-shell:
     name: Dev shell build
     needs: build-gate
