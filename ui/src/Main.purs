@@ -300,11 +300,28 @@ renderSessionSwitcher state =
         ]
     , HH.div
         [ cls
-            ( "session-menu"
+            ( "context-menu-layer"
                 <> if state.sessionMenuOpen then "" else " hidden"
             )
         ]
-        (renderSessionItems state)
+        [ HH.button
+            [ cls "context-menu-backdrop"
+            , HP.attr (HH.AttrName "aria-label") "Close Sessions menu"
+            , HE.onClick \_ -> ToggleSessionMenu
+            ]
+            []
+        , HH.section
+            [ cls "session-menu context-menu-sheet"
+            , HP.attr (HH.AttrName "role") "dialog"
+            , HP.attr (HH.AttrName "aria-modal") "true"
+            , HP.attr (HH.AttrName "aria-labelledby") "sessions-menu-title"
+            ]
+            [ renderContextMenuHeader "sessions-menu-title" "Sessions" ToggleSessionMenu
+            , HH.div
+                [ cls "context-menu-choices" ]
+                (renderSessionItems state)
+            ]
+        ]
     ]
 
 renderSessionItems
@@ -326,6 +343,8 @@ renderSessionItem state session =
         ( "session-menu-item"
             <> if session.id == state.attachedSession then " active" else ""
         )
+    , HP.attr (HH.AttrName "aria-current")
+        (if session.id == state.attachedSession then "true" else "false")
     , HE.onClick \_ -> ChooseSession session.id
     ]
     [ HH.span
@@ -369,11 +388,49 @@ renderWindowSwitcher state =
         ]
     , HH.div
         [ cls
-            ( "window-menu"
+            ( "context-menu-layer"
                 <> if state.windowMenuOpen then "" else " hidden"
             )
         ]
-        (renderWindowItems state.windows)
+        [ HH.button
+            [ cls "context-menu-backdrop"
+            , HP.attr (HH.AttrName "aria-label") "Close Windows menu"
+            , HE.onClick \_ -> ToggleWindowMenu
+            ]
+            []
+        , HH.section
+            [ cls "window-menu context-menu-sheet"
+            , HP.attr (HH.AttrName "role") "dialog"
+            , HP.attr (HH.AttrName "aria-modal") "true"
+            , HP.attr (HH.AttrName "aria-labelledby") "windows-menu-title"
+            ]
+            [ renderContextMenuHeader "windows-menu-title" "Windows" ToggleWindowMenu
+            , HH.div
+                [ cls "context-menu-choices" ]
+                (renderWindowItems state.windows)
+            ]
+        ]
+    ]
+
+renderContextMenuHeader
+  :: String
+  -> String
+  -> Action
+  -> H.ComponentHTML Action Slots Aff
+renderContextMenuHeader titleId title closeAction =
+  HH.div
+    [ cls "context-menu-header" ]
+    [ HH.h2
+        [ HP.id titleId
+        , cls "context-menu-title"
+        ]
+        [ HH.text title ]
+    , HH.button
+        [ cls "context-menu-close icon-button"
+        , HP.attr (HH.AttrName "aria-label") ("Close " <> title <> " menu")
+        , HE.onClick \_ -> closeAction
+        ]
+        [ icon "x" ]
     ]
 
 renderWindowItems
@@ -603,6 +660,8 @@ renderWindowItem windowInfo =
         ( "window-menu-item"
             <> if windowInfo.active then " active" else ""
         )
+    , HP.attr (HH.AttrName "aria-current")
+        (if windowInfo.active then "true" else "false")
     , HE.onClick \_ -> SelectWindow windowInfo.index
     ]
     [ HH.span
