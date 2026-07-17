@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.2] (2026-07-17)
+
+### Release
+
+- fix(release): smoke the Darwin bundle from a clean directory (450e0c6)
+- fix(release): inspect only staged Mach-O files (1409d57)
+- fix(ci): smoke the AppImage entrypoint (a68f1cc)
+- fix(release): bundle SPA with released artifacts (404b43c)
+- docs: lead with released artifacts (1006258)
+- docs: install released artifacts in quick start (e3730cb)
+
+
 ## [0.5.1] (2026-07-17)
 
 tmux-ws 0.5.1 is the installable corrective release for the tablet command
