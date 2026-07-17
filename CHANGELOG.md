@@ -2,12 +2,67 @@
 
 ## [0.5.1] (2026-07-17)
 
-### Release
+tmux-ws 0.5.1 is the installable corrective release for the tablet command
+deck and touch-friendly context menus introduced in 0.5.0.
+
+### Release status
+
+The immutable v0.5.0 tag and release remain available, but their asset jobs
+stopped at tag-message validation and attached no binaries. Use v0.5.1 for
+installation. It contains the same tablet UI plus the repaired release path.
+
+### Tablet and browser coverage
+
+- Sessions and Windows use bottom menus sized for touch and small screens.
+- Esc, Tab, Enter, arrows, and every Ctrl/Alt/Shift/Tmux combination send exact
+  terminal bytes once per tap.
+- Held arrows stop on release, pointer cancellation/leave, and browser blur.
+- Playwright exercises 390x844, 768x1024, and 1024x768 touch viewports,
+  including all 15 modifier combinations, latches, repeat lifecycle, native
+  xterm virtual-keyboard input, WebSocket bytes, and browser errors.
+
+### Install or upgrade
+
+Download Linux builds from the
+[v0.5.1 release](https://github.com/lambdasistemi/tmux-ws/releases/tag/v0.5.1):
+
+- `tmux-ws-0.5.1-x86_64-linux.AppImage`
+- `tmux-ws-0.5.1-x86_64-linux.deb`
+- `tmux-ws-0.5.1-x86_64-linux.rpm`
+- stable `tmux-ws.AppImage`
+- `SHA256SUMS`
+
+Verify downloads with `sha256sum -c SHA256SUMS --ignore-missing`. On Apple
+Silicon macOS:
+
+```bash
+brew update
+brew upgrade tmux-ws || brew install lambdasistemi/tap/tmux-ws
+```
+
+### Documentation
+
+- [Quick start and installation](https://lambdasistemi.github.io/tmux-ws/docs/#quick-start)
+- [Release packages and migration](https://lambdasistemi.github.io/tmux-ws/docs/release/)
+- [NixOS deployment and service operation](https://lambdasistemi.github.io/tmux-ws/docs/deployment/)
+- [Persistent Tailscale HTTPS for tablets](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/)
+
+### Release reliability
+
+Release tags are published through GitHub's annotated-tag and reference APIs
+without broadening the org-wide App's permissions. Tag validation now reads the
+tag object's contents directly, including API-created messages without a final
+line feed.
+
+### Included changes
 
 - fix(release): validate API-created tag messages (7e511f0)
 
 
 ## [0.5.0] (2026-07-17)
+
+> Publication note: v0.5.0 remains immutable, but its asset workflows attached
+> no binaries. Install v0.5.1 instead.
 
 tmux-ws 0.5.0 makes its tablet command deck dependable and adds browser-level
 regression coverage for the no-keyboard workflow.
