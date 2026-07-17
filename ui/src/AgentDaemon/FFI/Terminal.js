@@ -144,7 +144,7 @@ const installCommandDeckHandling = (controller) => {
   const stopRepeat = (event) => {
     if (
       controller.commandDeckPointerId != null &&
-      (!event || event.pointerId === controller.commandDeckPointerId)
+      (event?.pointerId == null || event.pointerId === controller.commandDeckPointerId)
     ) {
       clearCommandDeckRepeat(controller);
     }
