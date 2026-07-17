@@ -305,6 +305,12 @@ let
         require_literal "$readme" 'tmux-ws --host' 'README primary command'; reject_literal "$readme" 'agent-daemon' 'README legacy primary text'
         require_literal "$docs_index" 'tmux-ws --host' 'index primary command'; reject_literal "$docs_index" 'agent-daemon' 'index legacy primary text'
         quick_start="$(sed -n '/^## Quick start$/,/^## /p' "$docs_index")"
+        quick_start_line="$(grep -n -m1 '^## Quick start$' "$docs_index" | cut -d: -f1)"
+        touch_first_line="$(grep -n -m1 '^## Touch-first operation$' "$docs_index" | cut -d: -f1)"
+        if ! test "$quick_start_line" -lt "$touch_first_line"; then
+          echo 'docs/service contract: Quick start must precede feature documentation' >&2
+          exit 1
+        fi
         grep -Fq 'releases/latest/download/tmux-ws.AppImage' <<<"$quick_start" || { echo 'docs/service contract: Quick start must install the stable release AppImage' >&2; exit 1; }
         grep -Fq 'sudo apt install' <<<"$quick_start" || { echo 'docs/service contract: Quick start must include the released DEB path' >&2; exit 1; }
         grep -Fq 'sudo dnf install' <<<"$quick_start" || { echo 'docs/service contract: Quick start must include the released RPM path' >&2; exit 1; }
