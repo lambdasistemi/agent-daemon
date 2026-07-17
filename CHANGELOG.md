@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0] (2026-07-17)
+
+### Release
+
+- fix(ui): stop arrow repeat on browser blur (d84867e)
+- fix(ui): send touch command deck keys once (5826d78)
+- ci: publish PR-only UI preview (d97f2f9)
+- feat(ui): add touch context bottom sheets (b98e5ba)
+- docs: lead README with release installs (453a5b3)
+
+
 ## [0.4.0] (2026-07-15)
 
 tmux-ws now ships reproducible x86_64 Linux packages alongside the existing Apple Silicon/Homebrew distribution.
