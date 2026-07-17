@@ -128,6 +128,29 @@ test "$(git -C "$proposal_repo" branch --show-current)" = main \
 test "$(git -C "$proposal_repo" status --porcelain)" = '' \
   || fail 'dry-run changed the proposal fixture'
 
+git -C "$proposal_repo" init --bare --quiet "$tmp/proposal-remote.git"
+git -C "$proposal_repo" remote add origin "$tmp/proposal-remote.git"
+git -C "$proposal_repo" push --quiet -u origin main --tags
+proposal_mock_bin="$tmp/proposal-mock-bin"
+mkdir "$proposal_mock_bin"
+printf '#!%s\n' "$(command -v bash)" > "$proposal_mock_bin/gh"
+cat >> "$proposal_mock_bin/gh" <<'EOF'
+set -euo pipefail
+printf '%s\n' "$*" >> "$GH_LOG"
+case "$1 $2" in
+  'pr view') exit 0 ;; # A prior release PR for the reused branch was merged.
+  'pr list') : ;;
+  'pr create') exit 0 ;;
+  *) printf 'unexpected gh command: %s\n' "$*" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$proposal_mock_bin/gh"
+GH_LOG="$tmp/proposal-gh.log" PATH="$proposal_mock_bin:$PATH" \
+  bash "$proposal_repo/scripts/release/plan" > "$tmp/proposal-create.out"
+assert_contains 'pr create --head release/cabal-release --base main' \
+  "$tmp/proposal-gh.log"
+assert_not_contains 'pr edit' "$tmp/proposal-gh.log"
+
 publish_repo="$tmp/publish"
 make_repo "$publish_repo"
 sed -E -i "s/^(version:[[:space:]]*).*/\1${fixture_release_version}/" \

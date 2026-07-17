@@ -85,8 +85,12 @@ if ! git diff --cached --quiet; then
   git commit -m "chore(release): prepare v${next}"
 fi
 git push --force-with-lease origin "HEAD:refs/heads/$branch"
-if gh pr view "$branch" --repo "${GITHUB_REPOSITORY:-}" >/dev/null 2>&1; then
-  gh pr edit "$branch" --title "chore(release): prepare v${next}" \
+open_pr="$(
+  gh pr list --state open --head "$branch" --base main \
+    --repo "${GITHUB_REPOSITORY:-}" --json number --jq '.[0].number // empty'
+)"
+if test -n "$open_pr"; then
+  gh pr edit "$open_pr" --title "chore(release): prepare v${next}" \
     --body "Cabal-owned release proposal for v${next}."
 else
   gh pr create --head "$branch" --base main --title "chore(release): prepare v${next}" \
