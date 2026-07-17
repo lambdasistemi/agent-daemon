@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1] (2026-07-17)
+
+### Release
+
+- fix(release): validate API-created tag messages (7e511f0)
+
+
 ## [0.5.0] (2026-07-17)
 
 tmux-ws 0.5.0 makes its tablet command deck dependable and adds browser-level
