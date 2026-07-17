@@ -2,7 +2,57 @@
 
 ## [0.5.0] (2026-07-17)
 
-### Release
+tmux-ws 0.5.0 makes its tablet command deck dependable and adds browser-level
+regression coverage for the no-keyboard workflow.
+
+### Tablet controls
+
+- Sessions and Windows open touch-friendly bottom menus, keeping their actions
+  reachable on small screens.
+- Esc, Tab, Enter, arrows, and Ctrl/Alt/Shift/Tmux combinations now send exactly
+  one terminal sequence per tap. In particular, `Tmux` + `Up` no longer leaks a
+  second plain `Up` after Chrome synthesizes a click.
+- Held arrows stop on release, pointer cancellation, pointer leave, or browser
+  focus loss, so a tablet cannot keep scrolling after Chrome is backgrounded.
+- Modifier latches remain one-shot and can be cancelled without sending terminal
+  input.
+
+### Browser regression suite
+
+The Playwright interaction suite runs at 390x844, 768x1024, and 1024x768. It
+checks every direct command button, all 15 non-empty Ctrl/Alt/Shift/Tmux
+combinations, latch cancellation and clearing, arrow-repeat lifecycle,
+keyboard/assistive activation, native xterm virtual-keyboard input, exact
+WebSocket bytes, and browser errors. Pull requests also publish an isolated UI
+preview for real-device review.
+
+### Install or upgrade
+
+Download Linux builds from the
+[v0.5.0 release](https://github.com/lambdasistemi/tmux-ws/releases/tag/v0.5.0):
+
+- `tmux-ws-0.5.0-x86_64-linux.AppImage`
+- `tmux-ws-0.5.0-x86_64-linux.deb`
+- `tmux-ws-0.5.0-x86_64-linux.rpm`
+- stable `tmux-ws.AppImage`
+- `SHA256SUMS`
+
+Verify downloaded assets with `sha256sum -c SHA256SUMS --ignore-missing` before
+running or installing them. On Apple Silicon macOS:
+
+```bash
+brew update
+brew upgrade tmux-ws || brew install lambdasistemi/tap/tmux-ws
+```
+
+### Documentation
+
+- [Quick start and installation](https://lambdasistemi.github.io/tmux-ws/docs/#quick-start)
+- [Release packages and migration](https://lambdasistemi.github.io/tmux-ws/docs/release/)
+- [NixOS deployment and service operation](https://lambdasistemi.github.io/tmux-ws/docs/deployment/)
+- [Persistent Tailscale HTTPS for tablets](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/)
+
+### Included changes
 
 - fix(ui): stop arrow repeat on browser blur (d84867e)
 - fix(ui): send touch command deck keys once (5826d78)

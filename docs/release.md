@@ -13,9 +13,9 @@ tmux-ws --help
 NixOS users should configure `services.tmux-ws` and enable the `tmux-ws`
 systemd service.
 
-## Future Linux release artifacts
+## Linux release artifacts
 
-Future Linux releases provide
+Published releases provide
 `tmux-ws-<version>-x86_64-linux.AppImage`,
 `tmux-ws-<version>-x86_64-linux.deb`,
 `tmux-ws-<version>-x86_64-linux.rpm`, `SHA256SUMS`, and the stable
@@ -50,15 +50,17 @@ sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
 tmux-ws --help
 ```
 
-Pull requests and default manual runs build and smoke artifacts only. They do
-not publish production assets. A future immutable `v*` tag attaches production assets only to the planner-created release.
-The attachment is idempotent and does not delete or recreate that release.
-This PR does not publish, dispatch, retag, rewrite releases, or mutate a tap.
+Pull requests and manual workflow runs build and smoke artifacts only; they do
+not publish production assets. An immutable `v*` tag attaches production assets
+only to the planner-created release. Attachment is idempotent and does not
+delete or recreate that release.
 
-`v0.3.0` is immutable and remains unchanged, and will not be rewritten or deleted.
-`v0.3.1` is published with the canonical `tmux-ws-0.3.1-aarch64-darwin.tar.gz` Darwin asset and an
-updated Homebrew tap formula. The release workflow used that formula to
-update the real Homebrew tap. After an upgrade, restart the daemon
+`v0.3.0` is immutable and remains unchanged; it will not be rewritten or deleted.
+`v0.3.1` is the corrective publication that introduced the canonical
+Darwin archive and used the release workflow to update the real Homebrew tap.
+Current releases likewise include a versioned Apple Silicon Darwin archive and
+update the Homebrew formula without changing historical releases. After an
+upgrade, restart the daemon
 (`systemctl restart tmux-ws` on NixOS) and
 reload the browser document on Chrome tablets to fetch the updated SPA. See
 [deployment](deployment.md), [Tailscale HTTPS](tailscale.md), and the
