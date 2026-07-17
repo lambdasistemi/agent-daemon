@@ -16,11 +16,11 @@ Download published builds from the
 The stable AppImage name tracks the latest release:
 
 ```bash
-curl -LO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
-curl -LO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing
 chmod +x tmux-ws.AppImage
-./tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir /code
+./tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir "$HOME"
 ```
 
 Open the daemon URL in a browser on the same machine:
@@ -40,9 +40,9 @@ also provides versioned native x86_64 DEB and RPM packages. Download the one
 for your distribution, then install it with the matching package manager:
 
 ```bash
-sudo apt install ./tmux-ws-<version>-x86_64-linux.deb
+sudo apt install ./tmux-ws-*-x86_64-linux.deb
 
-sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
+sudo dnf install ./tmux-ws-*-x86_64-linux.rpm
 ```
 
 ### macOS with Homebrew
@@ -57,7 +57,7 @@ The formula is backed by the latest release's versioned
 After installing a native package or the Homebrew formula, launch with:
 
 ```bash
-tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
 ```
 
 Then open `http://127.0.0.1:8080/` on the same machine, or expose that same
