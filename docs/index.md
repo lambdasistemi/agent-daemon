@@ -112,13 +112,68 @@ a document reload.
 
 ## Quick start
 
+The supported installation path is the
+[latest GitHub release](https://github.com/lambdasistemi/tmux-ws/releases/latest).
+You do not need Nix or a source checkout to run `tmux-ws`.
+
+### Linux AppImage
+
+The AppImage is the quickest option on x86_64 Linux. Its stable filename always
+points to the latest release:
+
 ```bash
-# Build
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+chmod +x tmux-ws.AppImage
+./tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir "$HOME"
+```
+
+Open `http://127.0.0.1:8080/` on that computer. To use a tablet, keep the
+daemon bound to localhost and follow the [Tailscale HTTPS guide](tailscale.md)
+to expose the same daemon origin safely.
+
+### Debian or Ubuntu
+
+Download the `.deb` file from the
+[latest release](https://github.com/lambdasistemi/tmux-ws/releases/latest), then
+run these commands from your Downloads directory:
+
+```bash
+sudo apt install ./tmux-ws-*-x86_64-linux.deb
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
+```
+
+### Fedora, RHEL, or another RPM-based distribution
+
+Download the `.rpm` file from the
+[latest release](https://github.com/lambdasistemi/tmux-ws/releases/latest), then
+run:
+
+```bash
+sudo dnf install ./tmux-ws-*-x86_64-linux.rpm
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
+```
+
+### macOS on Apple Silicon
+
+```bash
+brew install lambdasistemi/tap/tmux-ws
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
+```
+
+`tmux`, `git`, and `ssh` must be available in `PATH`. See
+[Release and migration](release.md) for package details and upgrades.
+
+## Build from source (developers only)
+
+This is for contributors working on `tmux-ws`, not for normal installation:
+
+```bash
 nix develop
 just build
 
-# Run
-tmux-ws --host 127.0.0.1 --port 8080 --base-dir /code
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
 ```
 
 ## CLI options

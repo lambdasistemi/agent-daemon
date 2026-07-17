@@ -2,16 +2,32 @@
 
 ## New installations
 
-Install the primary product with Homebrew:
+Install a published artifact from the
+[latest release](https://github.com/lambdasistemi/tmux-ws/releases/latest).
+Normal installations do not require Nix or a source checkout.
+
+On x86_64 Linux, the stable AppImage is the shortest path:
+
+```bash
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+chmod +x tmux-ws.AppImage
+./tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir "$HOME"
+```
+
+Debian, Ubuntu, Fedora, and RHEL users can instead download the `.deb` or `.rpm`
+from that release and install it with the platform package manager. Apple
+Silicon macOS users install the released archive through Homebrew:
 
 ```bash
 brew update
 brew install lambdasistemi/tap/tmux-ws
-tmux-ws --help
+tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
 ```
 
-NixOS users should configure `services.tmux-ws` and enable the `tmux-ws`
-systemd service.
+NixOS service configuration is an advanced option for reboot-persistent daemon
+operation; it is not the general installation path. See [deployment](deployment.md).
 
 ## Linux release artifacts
 
@@ -23,30 +39,29 @@ Published releases provide
 before using an AppImage:
 
 ```bash
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/tmux-ws.AppImage
+curl -fLO https://github.com/lambdasistemi/tmux-ws/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing
-chmod +x tmux-ws-<version>-x86_64-linux.AppImage
-./tmux-ws-<version>-x86_64-linux.AppImage --help
-```
-
-The stable path is the same AppImage under an unversioned name:
-
-```bash
 chmod +x tmux-ws.AppImage
 ./tmux-ws.AppImage --help
 ```
+
+The stable path is the same AppImage under an unversioned name. Use the
+versioned AppImage from the release page only when you need to pin a specific
+release.
 
 On Debian or Ubuntu, install the downloaded package and then use the canonical
 `tmux-ws` executable:
 
 ```bash
-sudo apt install ./tmux-ws-<version>-x86_64-linux.deb
+sudo apt install ./tmux-ws-*-x86_64-linux.deb
 tmux-ws --help
 ```
 
 On an RPM-based distribution, use the equivalent RPM package:
 
 ```bash
-sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
+sudo dnf install ./tmux-ws-*-x86_64-linux.rpm
 tmux-ws --help
 ```
 

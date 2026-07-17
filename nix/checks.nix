@@ -288,7 +288,7 @@ let
     };
 
     docs-service-contract = {
-      runtimeInputs = [ pkgs.coreutils pkgs.gnugrep ];
+      runtimeInputs = [ pkgs.coreutils pkgs.gnugrep pkgs.gnused ];
       text = ''
         set -euo pipefail
         require_literal() { grep -Fq "$2" "$1" || { printf 'docs/service contract: missing %s\n' "$3" >&2; exit 1; }; }
@@ -304,6 +304,14 @@ let
         reject_literal "$module" '/bin/agent-daemon' 'legacy primary service binary'
         require_literal "$readme" 'tmux-ws --host' 'README primary command'; reject_literal "$readme" 'agent-daemon' 'README legacy primary text'
         require_literal "$docs_index" 'tmux-ws --host' 'index primary command'; reject_literal "$docs_index" 'agent-daemon' 'index legacy primary text'
+        quick_start="$(sed -n '/^## Quick start$/,/^## /p' "$docs_index")"
+        grep -Fq 'releases/latest/download/tmux-ws.AppImage' <<<"$quick_start" || { echo 'docs/service contract: Quick start must install the stable release AppImage' >&2; exit 1; }
+        grep -Fq 'sudo apt install' <<<"$quick_start" || { echo 'docs/service contract: Quick start must include the released DEB path' >&2; exit 1; }
+        grep -Fq 'sudo dnf install' <<<"$quick_start" || { echo 'docs/service contract: Quick start must include the released RPM path' >&2; exit 1; }
+        if grep -Fq 'nix develop' <<<"$quick_start"; then
+          echo 'docs/service contract: Quick start must not require the Nix development shell' >&2
+          exit 1
+        fi
         require_literal "$deployment" 'services.tmux-ws' 'deployment primary service configuration'; reject_literal "$deployment" 'systemctl enable --now agent-daemon' 'deployment legacy service command'; reject_literal "$deployment" '/bin/agent-daemon' 'deployment legacy binary command'
         require_literal "$tailscale" 'tmux-ws --host' 'Tailscale primary command'; reject_literal "$tailscale" 'agent-daemon --host' 'Tailscale legacy primary command'
         test -f "$release_guide"
