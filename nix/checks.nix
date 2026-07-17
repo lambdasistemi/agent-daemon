@@ -250,6 +250,8 @@ let
         grep -Fq 'cachix/install-nix-action@v30' "$darwin"
         grep -Fq 'share/tmux-ws/static' "$darwin"
         grep -Fq 'curl --fail --silent --show-error' "$darwin"
+        # shellcheck disable=SC2016
+        grep -Fq 'find "$bundle/bin" "$libdir" -type f -print' "$darwin"
       '';
     };
 
