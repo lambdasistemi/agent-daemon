@@ -138,9 +138,12 @@ jobs:
 
           server_log="$RUNNER_TEMP/tmux-ws-server.log"
           server_page="$RUNNER_TEMP/tmux-ws-index.html"
-          mkdir -p "$RUNNER_TEMP/tmux-ws-base"
-          "$binary" --host 127.0.0.1 --port 18081 --base-dir "$RUNNER_TEMP/tmux-ws-base" \
-            >"$server_log" 2>&1 &
+          server_run_dir="$RUNNER_TEMP/tmux-ws-run"
+          mkdir -p "$RUNNER_TEMP/tmux-ws-base" "$server_run_dir"
+          (
+            cd "$server_run_dir"
+            "$binary" --host 127.0.0.1 --port 18081 --base-dir "$RUNNER_TEMP/tmux-ws-base"
+          ) >"$server_log" 2>&1 &
           server_pid="$!"
           served=false
           for _attempt in 1 2 3 4 5; do
