@@ -73,13 +73,13 @@ pkgs.writeShellApplication {
     }
 
     smokeUi() {
-      appImage="$1"
+      executable="$1"
       destination="$2"
       port="$(shuf -i 20000-40000 -n 1)"
       mkdir -p "$destination/base" "$destination/run"
       (
         cd "$destination/run"
-        APPIMAGE_EXTRACT_AND_RUN=1 "$appImage" \
+        "$executable" \
           --host 127.0.0.1 \
           --port "$port" \
           --base-dir "$destination/base"
@@ -115,8 +115,13 @@ pkgs.writeShellApplication {
         ./tmux-ws.AppImage --appimage-extract >/dev/null
       )
       findUi "$destination/squashfs-root"
-      findTmuxWs "$(find "$destination/squashfs-root" -type f -name tmux-ws -perm -u+x -print -quit)"
-      smokeUi "$destination/tmux-ws.AppImage" "$destination"
+      entrypoint="$(readlink "$destination/squashfs-root/entrypoint")"
+      case "$entrypoint" in
+        /nix/store/*) executable="$destination/squashfs-root$entrypoint" ;;
+        *) executable="$destination/squashfs-root/$entrypoint" ;;
+      esac
+      findTmuxWs "$executable"
+      smokeUi "$executable" "$destination"
     }
 
     versionedPrefix="tmux-ws-$artifactVersion-x86_64-linux"
