@@ -252,6 +252,8 @@ let
         grep -Fq 'curl --fail --silent --show-error' "$darwin"
         # shellcheck disable=SC2016
         grep -Fq 'find "$bundle/bin" "$libdir" -type f -print' "$darwin"
+        # shellcheck disable=SC2016
+        grep -Fq 'cd "$server_run_dir"' "$darwin"
       '';
     };
 
