@@ -176,22 +176,35 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$GH_LOG"
 case "$1 $2" in
   'pr list') printf '[{"mergedAt":"2026-07-14T00:00:00Z"}]\n' ;;
+  'api --method')
+    case "$*" in
+      *'/git/tags'*) printf '1111111111111111111111111111111111111111\n' ;;
+      *'/git/refs'*) : ;;
+      *) printf 'unexpected gh api command: %s\n' "$*" >&2; exit 1 ;;
+    esac
+    ;;
   'release view') test -e "$GH_RELEASE_EXISTS" ;;
   'release create') touch "$GH_RELEASE_EXISTS" ;;
   *) printf 'unexpected gh command: %s\n' "$*" >&2; exit 1 ;;
 esac
 EOF
 chmod +x "$mock_bin/gh"
-GH_LOG="$tmp/gh.log" GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
+GITHUB_REPOSITORY=lambdasistemi/tmux-ws GH_LOG="$tmp/gh.log" \
+  GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
   bash "$publish_repo/scripts/release/plan" > "$tmp/publish.out"
 git -C "$publish_repo" rev-parse -q \
   --verify "refs/tags/v$fixture_release_version" >/dev/null \
   || fail 'planner did not create the annotated release tag'
 assert_contains "release create v$fixture_release_version" "$tmp/gh.log"
+assert_contains \
+  "api --method POST repos/lambdasistemi/tmux-ws/git/tags" "$tmp/gh.log"
+assert_contains \
+  "api --method POST repos/lambdasistemi/tmux-ws/git/refs" "$tmp/gh.log"
 assert_not_contains 'release delete' "$tmp/gh.log"
 
 before="$(grep -Fc "release create v$fixture_release_version" "$tmp/gh.log")"
-GH_LOG="$tmp/gh.log" GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
+GITHUB_REPOSITORY=lambdasistemi/tmux-ws GH_LOG="$tmp/gh.log" \
+  GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
   bash "$publish_repo/scripts/release/plan" > "$tmp/publish-repeat.out"
 after="$(grep -Fc "release create v$fixture_release_version" "$tmp/gh.log")"
 test "$before" = "$after" || fail 're-running publication created a release'

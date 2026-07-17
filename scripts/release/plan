@@ -36,7 +36,18 @@ if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
 
   if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
     git tag -a "$tag" -m "Release $tag"
-    git push origin "$tag"
+    target="$(git rev-parse HEAD)"
+    tag_object="$(
+      gh api --method POST "repos/${GITHUB_REPOSITORY:?}/git/tags" \
+        --raw-field tag="$tag" \
+        --raw-field message="Release $tag" \
+        --raw-field object="$target" \
+        --raw-field type=commit \
+        --jq .sha
+    )"
+    gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+      --raw-field ref="refs/tags/$tag" \
+      --raw-field sha="$tag_object" >/dev/null
   fi
   if ! gh release view "$tag" --repo "${GITHUB_REPOSITORY:-}" >/dev/null 2>&1; then
     notes="$(mktemp)"
