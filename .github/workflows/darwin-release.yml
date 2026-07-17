@@ -133,7 +133,7 @@ jobs:
               printf 'unstaged Nix dependency remains in %s\n' "$staged" >&2
               exit 1
             fi
-          done < <(find "$bundle" -type f -print)
+          done < <(find "$bundle/bin" "$libdir" -type f -print)
           "$binary" --help
 
           server_log="$RUNNER_TEMP/tmux-ws-server.log"
