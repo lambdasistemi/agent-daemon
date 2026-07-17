@@ -35,14 +35,14 @@ serves the SPA and API together.
 
 ### Native Linux packages
 
-Release v0.4.0 also provides native x86_64 DEB and RPM packages:
+The [latest release](https://github.com/lambdasistemi/tmux-ws/releases/latest)
+also provides versioned native x86_64 DEB and RPM packages. Download the one
+for your distribution, then install it with the matching package manager:
 
 ```bash
-curl -LO https://github.com/lambdasistemi/tmux-ws/releases/download/v0.4.0/tmux-ws-0.4.0-x86_64-linux.deb
-sudo apt install ./tmux-ws-0.4.0-x86_64-linux.deb
+sudo apt install ./tmux-ws-<version>-x86_64-linux.deb
 
-curl -LO https://github.com/lambdasistemi/tmux-ws/releases/download/v0.4.0/tmux-ws-0.4.0-x86_64-linux.rpm
-sudo dnf install ./tmux-ws-0.4.0-x86_64-linux.rpm
+sudo dnf install ./tmux-ws-<version>-x86_64-linux.rpm
 ```
 
 ### macOS with Homebrew
@@ -51,8 +51,8 @@ sudo dnf install ./tmux-ws-0.4.0-x86_64-linux.rpm
 brew install lambdasistemi/tap/tmux-ws
 ```
 
-The formula is backed by the v0.4.0 release artifact
-`tmux-ws-0.4.0-aarch64-darwin.tar.gz`.
+The formula is backed by the latest release's versioned
+`tmux-ws-<version>-aarch64-darwin.tar.gz` artifact.
 
 After installing a native package or the Homebrew formula, launch with:
 
