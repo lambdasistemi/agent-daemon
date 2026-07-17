@@ -15,6 +15,7 @@ import AgentDaemon
     , recoverSessions
     , startServer
     )
+import AgentDaemon.Static (resolveStaticDir)
 import Options.Applicative
     ( Parser
     , auto
@@ -93,9 +94,10 @@ main = do
                 )
     mgr <- newSessionManager
     recoverSessions (configBaseDir config) mgr
+    staticDir <- resolveStaticDir (configStaticDir config)
     startServer
         (configHost config)
         (configPort config)
         (configBaseDir config)
-        (configStaticDir config)
+        staticDir
         mgr

@@ -45,11 +45,14 @@
             else
               "dirty"
           }";
-        linuxTmuxWs = pkgs.symlinkJoin {
-          name = "tmux-ws-${cabalVersion}";
-          paths = [ project.packages.tmux-ws ];
+        tmuxWs = pkgs.runCommand "tmux-ws-${cabalVersion}" {
           meta.mainProgram = "tmux-ws";
-        };
+        } ''
+          mkdir -p "$out/bin" "$out/share/tmux-ws"
+          cp ${project.packages.tmux-ws}/bin/tmux-ws "$out/bin/tmux-ws"
+          ln -s ${project.packages.static} "$out/share/tmux-ws/static"
+        '';
+        linuxTmuxWs = tmuxWs;
         linuxRelease = import ./nix/linux-release.nix {
           inherit pkgs cabalVersion devVersion linuxTmuxWs;
           bundlers = bundlers.bundlers.${system};
@@ -155,7 +158,8 @@
           '';
       in {
         packages = project.packages // {
-          default = project.packages.tmux-ws;
+          default = tmuxWs;
+          tmux-ws = tmuxWs;
           inherit docs site;
         } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           linux-release-artifacts = linuxRelease.release;

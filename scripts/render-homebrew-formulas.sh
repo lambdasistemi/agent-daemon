@@ -19,6 +19,7 @@ class TmuxWs < Formula
   def install
     bin.install "bin/tmux-ws"
     (libexec/"lib").install Dir["libexec/lib/*"]
+    (share/"tmux-ws").install Dir["share/tmux-ws/*"]
   end
 
   test do

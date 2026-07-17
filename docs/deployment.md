@@ -1,6 +1,10 @@
 # Deployment
 
-## NixOS module
+The daemon must run as the same user who owns the tmux server it controls. Pick
+one of the following persistence routes; all examples keep the browser origin
+on localhost so it can be exposed safely through Tailscale Serve.
+
+## NixOS system module (`configuration.nix`, not `home.nix`)
 
 The flake exposes a NixOS module:
 
@@ -82,7 +86,10 @@ must agree.
 
 ## Systemd (manual)
 
-If you're not on NixOS, create a unit file:
+Use a system service only when a system administrator needs to manage the
+daemon. For a personal tmux server, the [user service](#systemd-user-service-for-released-linux-packages)
+below is usually the better fit because it already runs as the tmux owner.
+If you do need a system service, create this unit file:
 
 ```ini
 # /etc/systemd/system/tmux-ws.service
@@ -95,11 +102,10 @@ Type=simple
 User=<operator>
 Group=<operator-group>
 WorkingDirectory=/path/to/worktrees
-ExecStart=/usr/local/bin/tmux-ws \
+ExecStart=/bin/tmux-ws \
   --host 127.0.0.1 \
   --port 8080 \
-  --base-dir /path/to/worktrees \
-  --static-dir /usr/local/share/tmux-ws/static
+  --base-dir /path/to/worktrees
 Restart=on-failure
 RestartSec=5
 Environment=PATH=/usr/bin:/usr/local/bin
@@ -119,6 +125,80 @@ For a service enabled at boot, ensure `/run/user/<uid>` is created before this
 unit starts (for example, enable lingering and order the unit after
 `user-runtime-dir@<uid>.service`). Then configure a persistent HTTPS route as
 described in [Tailscale HTTPS](tailscale.md).
+
+## Home Manager (`home.nix`) user service
+
+`tmux-ws` exports a NixOS module, not a Home Manager module. Put this user
+service in your own `home.nix` after making the `tmux-ws` flake input available
+to Home Manager through `extraSpecialArgs`:
+
+```nix
+{ inputs, pkgs, ... }:
+
+let
+  tmuxWs = inputs.tmux-ws.packages.${pkgs.stdenv.hostPlatform.system}.default;
+in {
+  home.packages = [ tmuxWs pkgs.tmux pkgs.git pkgs.openssh ];
+
+  systemd.user.services.tmux-ws = {
+    Unit = {
+      Description = "tmux-ws browser and tmux daemon";
+      After = [ "network-online.target" ];
+    };
+    Service = {
+      ExecStart = "${tmuxWs}/bin/tmux-ws --host 127.0.0.1 --port 8080 --base-dir %h";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+}
+```
+
+Enable lingering once so the user service starts after reboot even before a
+desktop or SSH login, then activate the service:
+
+```bash
+loginctl enable-linger "$USER"
+systemctl --user enable --now tmux-ws
+systemctl --user status tmux-ws
+```
+
+This service and the interactive tmux client share the same Unix user and the
+default tmux socket location. Do not set `TMUX_TMPDIR` in only one of them.
+
+## Systemd user service for released Linux packages
+
+For an AppImage, keep the downloaded, verified file at
+`~/.local/bin/tmux-ws.AppImage`, then create this user unit:
+
+```ini
+# ~/.config/systemd/user/tmux-ws.service
+[Unit]
+Description=tmux-ws browser and tmux daemon
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/tmux-ws.AppImage --host 127.0.0.1 --port 8080 --base-dir %h
+Environment=APPIMAGE_EXTRACT_AND_RUN=1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+For the released DEB or RPM, use the same unit but replace the `ExecStart`
+executable with `/bin/tmux-ws` and remove the `APPIMAGE_EXTRACT_AND_RUN`
+environment line. Released packages carry their own SPA files, so neither unit
+needs a `--static-dir` argument.
+
+```bash
+loginctl enable-linger "$USER"
+systemctl --user daemon-reload
+systemctl --user enable --now tmux-ws
+journalctl --user -u tmux-ws -f
+```
 
 ## Direct binary
 
