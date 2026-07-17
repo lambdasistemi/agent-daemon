@@ -34,7 +34,8 @@ if test "$mode" = publish && git rev-parse -q --verify "refs/tags/$tag" >/dev/nu
 fi
 
 if test "$mode" = publish && git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-  git show -s --format=%B "$tag" | grep -Fqx "Release $tag" || {
+  test "$(git for-each-ref --format='%(contents)' "refs/tags/$tag")" = \
+    "Release $tag" || {
     printf 'release tag message does not match %s\n' "$tag" >&2
     exit 1
   }

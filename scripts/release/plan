@@ -37,10 +37,11 @@ if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
     git tag -a "$tag" -m "Release $tag"
     target="$(git rev-parse HEAD)"
+    tag_message="Release $tag"$'\n'
     tag_object="$(
       gh api --method POST "repos/${GITHUB_REPOSITORY:?}/git/tags" \
         --raw-field tag="$tag" \
-        --raw-field message="Release $tag" \
+        --raw-field message="$tag_message" \
         --raw-field object="$target" \
         --raw-field type=commit \
         --jq .sha
