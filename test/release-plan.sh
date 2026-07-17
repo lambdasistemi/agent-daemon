@@ -202,6 +202,21 @@ assert_contains \
   "api --method POST repos/lambdasistemi/tmux-ws/git/refs" "$tmp/gh.log"
 assert_not_contains 'release delete' "$tmp/gh.log"
 
+# GitHub's tag-object API can preserve an exact message without appending LF.
+# The publish validator must inspect the tag message itself rather than letting
+# git-show concatenate it with the tagged commit message.
+publish_target="$(git -C "$publish_repo" rev-parse HEAD)"
+api_tag_object="$({
+  printf 'object %s\n' "$publish_target"
+  printf 'type commit\n'
+  printf 'tag v%s\n' "$fixture_release_version"
+  printf 'tagger Test <test@example.invalid> 1700000000 +0000\n\n'
+  printf 'Release v%s' "$fixture_release_version"
+} | git -C "$publish_repo" mktag)"
+git -C "$publish_repo" update-ref \
+  "refs/tags/v$fixture_release_version" "$api_tag_object"
+bash "$publish_repo/scripts/release/check-version-consistency" --mode publish
+
 before="$(grep -Fc "release create v$fixture_release_version" "$tmp/gh.log")"
 GITHUB_REPOSITORY=lambdasistemi/tmux-ws GH_LOG="$tmp/gh.log" \
   GH_RELEASE_EXISTS="$tmp/release-exists" PATH="$mock_bin:$PATH" \
