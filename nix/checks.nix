@@ -248,6 +248,8 @@ let
         grep -Fq 'bash scripts/render-homebrew-formulas.sh' "$darwin"
         test "$(yq -r '.jobs."build-and-release"."runs-on"' "$darwin")" = macos-14
         grep -Fq 'cachix/install-nix-action@v30' "$darwin"
+        grep -Fq 'share/tmux-ws/static' "$darwin"
+        grep -Fq 'curl --fail --silent --show-error' "$darwin"
       '';
     };
 
@@ -258,7 +260,7 @@ let
         darwin=.github/workflows/darwin-release.yml
         ci=.github/workflows/ci.yml
         # shellcheck disable=SC2016
-        for literal in 'bin/tmux-ws' 'tmux-ws-''${VERSION}-aarch64-darwin.tar.gz' 'brew install --formula lambdasistemi/tap/tmux-ws' 'tmux-ws --help'; do
+        for literal in 'bin/tmux-ws' 'share/tmux-ws/static' 'tmux-ws-''${VERSION}-aarch64-darwin.tar.gz' 'brew install --formula lambdasistemi/tap/tmux-ws' 'tmux-ws --help'; do
           grep -Fq "$literal" "$darwin"
         done
         if grep -Fq 'class TmuxWs < Formula' "$darwin" \
@@ -282,6 +284,7 @@ let
         bash scripts/render-homebrew-formulas.sh "$formula_dir" "https://example.invalid/tmux-ws-$version-aarch64-darwin.tar.gz" 0000000000000000000000000000000000000000000000000000000000000000 "$version"
         grep -Fqx 'class TmuxWs < Formula' "$formula_dir/tmux-ws.rb"
         grep -Fqx '    bin.install "bin/tmux-ws"' "$formula_dir/tmux-ws.rb"
+        grep -Fqx '    (share/"tmux-ws").install Dir["share/tmux-ws/*"]' "$formula_dir/tmux-ws.rb"
         grep -Fqx 'class AgentDaemon < Formula' "$formula_dir/agent-daemon.rb"
         grep -Fqx '  depends_on "tmux-ws"' "$formula_dir/agent-daemon.rb"
       '';
@@ -318,7 +321,14 @@ let
           echo 'docs/service contract: Quick start must not require the Nix development shell' >&2
           exit 1
         fi
+        require_literal "$docs_index" 'Keep it running after reboot' 'index persistence entry point'
         require_literal "$deployment" 'services.tmux-ws' 'deployment primary service configuration'; reject_literal "$deployment" 'systemctl enable --now agent-daemon' 'deployment legacy service command'; reject_literal "$deployment" '/bin/agent-daemon' 'deployment legacy binary command'
+        # shellcheck disable=SC2016
+        require_literal "$deployment" 'Home Manager (`home.nix`) user service' 'Home Manager user-service guide'
+        require_literal "$deployment" 'systemd.user.services.tmux-ws' 'Home Manager tmux-ws unit'
+        # shellcheck disable=SC2016
+        require_literal "$deployment" 'loginctl enable-linger "$USER"' 'user-service reboot persistence'
+        require_literal "$deployment" 'tmux-ws.AppImage' 'AppImage user-service guide'
         require_literal "$tailscale" 'tmux-ws --host' 'Tailscale primary command'; reject_literal "$tailscale" 'agent-daemon --host' 'Tailscale legacy primary command'
         test -f "$release_guide"
         require_literal "$release_guide" 'brew install lambdasistemi/tap/tmux-ws' 'release Homebrew install command'; require_literal "$release_guide" 'brew update' 'release Homebrew update command'; require_literal "$release_guide" 'brew upgrade tmux-ws' 'release Homebrew upgrade command'; require_literal "$release_guide" 'brew upgrade agent-daemon' 'legacy compatibility-alias upgrade path'; require_literal "$release_guide" 'brew uninstall agent-daemon' 'legacy compatibility-alias removal path'

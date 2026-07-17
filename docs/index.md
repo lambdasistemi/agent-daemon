@@ -67,6 +67,22 @@ tmux-ws --host 127.0.0.1 --port 8080 --base-dir "$HOME"
 `tmux`, `git`, and `ssh` must be available in `PATH`. See
 [Release and migration](release.md) for package details and upgrades.
 
+## Keep it running after reboot
+
+The foreground command above is useful for a first run. For a tablet you will
+normally want a service that starts as the same user who owns the tmux server:
+
+- use the [Home Manager `home.nix` user service](deployment.md#home-manager-homenix-user-service)
+  when your user configuration already uses Home Manager;
+- use the [NixOS system module](deployment.md#nixos-system-module-configurationnix-not-homenix)
+  for a machine-level NixOS configuration; or
+- use the [released-package systemd user service](deployment.md#systemd-user-service-for-released-linux-packages)
+  on another Linux distribution.
+
+Each option keeps the daemon on `127.0.0.1`; publish that same origin to a
+tablet with [Tailscale HTTPS](tailscale.md), not by exposing the daemon directly
+to the network.
+
 ## Build from source (developers only)
 
 This is for contributors working on `tmux-ws`, not for normal installation:

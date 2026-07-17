@@ -64,11 +64,15 @@ jobs:
           bundle="$RUNNER_TEMP/bundle"
           binary="$bundle/bin/tmux-ws"
           libdir="$bundle/libexec/lib"
+          staticdir="$bundle/share/tmux-ws/static"
           queue="$RUNNER_TEMP/dylib-queue"
           origins="$RUNNER_TEMP/dylib-origins"
 
-          mkdir -p "$bundle/bin" "$libdir"
+          mkdir -p "$bundle/bin" "$libdir" "$staticdir"
           cp "$(cat "$RUNNER_TEMP/nix-out")/bin/tmux-ws" "$binary"
+          cp -RL "$(cat "$RUNNER_TEMP/nix-out")/share/tmux-ws/static/." "$staticdir/"
+          test -s "$staticdir/index.html"
+          test -s "$staticdir/index.js"
           chmod u+w "$binary"
           : > "$queue"
           : > "$origins"
@@ -131,6 +135,29 @@ jobs:
             fi
           done < <(find "$bundle" -type f -print)
           "$binary" --help
+
+          server_log="$RUNNER_TEMP/tmux-ws-server.log"
+          server_page="$RUNNER_TEMP/tmux-ws-index.html"
+          mkdir -p "$RUNNER_TEMP/tmux-ws-base"
+          "$binary" --host 127.0.0.1 --port 18081 --base-dir "$RUNNER_TEMP/tmux-ws-base" \
+            >"$server_log" 2>&1 &
+          server_pid="$!"
+          served=false
+          for _attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --output "$server_page" http://127.0.0.1:18081/; then
+              served=true
+              break
+            fi
+            sleep 1
+          done
+          kill "$server_pid" 2>/dev/null || true
+          wait "$server_pid" 2>/dev/null || true
+          if test "$served" != true; then
+            cat "$server_log" >&2
+            exit 1
+          fi
+          grep -Fq '<title>tmux-ws</title>' "$server_page"
+          grep -Fq 'src="index.js' "$server_page"
 
       - name: Create tarball
         id: asset
@@ -217,6 +244,8 @@ jobs:
           brew tap lambdasistemi/tap
           brew trust lambdasistemi/tap
           brew install --formula lambdasistemi/tap/tmux-ws
+          test -s "$(brew --prefix tmux-ws)/share/tmux-ws/static/index.html"
+          test -s "$(brew --prefix tmux-ws)/share/tmux-ws/static/index.js"
           tmux-ws --help
           command -v tmux-ws
           otool -L "$(command -v tmux-ws)"
