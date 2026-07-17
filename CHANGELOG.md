@@ -4,12 +4,40 @@
 
 ### Release
 
-- fix(release): smoke the Darwin bundle from a clean directory (450e0c6)
-- fix(release): inspect only staged Mach-O files (1409d57)
-- fix(ci): smoke the AppImage entrypoint (a68f1cc)
-- fix(release): bundle SPA with released artifacts (404b43c)
-- docs: lead with released artifacts (1006258)
-- docs: install released artifacts in quick start (e3730cb)
+This corrective release makes every published package a runnable browser
+daemon. v0.5.1 shipped its Linux executable without the browser SPA, so it
+returned a 404 at `/` when launched from a normal directory. Upgrade to v0.5.2
+for AppImage, DEB, RPM, and Apple Silicon Homebrew installations.
+
+### Install or upgrade
+
+Download and verify the latest release artifacts:
+
+- x86_64 Linux: versioned and stable `tmux-ws.AppImage`, plus `.deb` and `.rpm`;
+- Apple Silicon macOS: `brew update && brew upgrade tmux-ws`, or
+  `brew install lambdasistemi/tap/tmux-ws`.
+
+Use the [Quick start and artifact installation guide](https://lambdasistemi.github.io/tmux-ws/docs/#quick-start)
+for the commands and checksum verification. See [release packages and
+migration](https://lambdasistemi.github.io/tmux-ws/docs/release/) for upgrade
+details.
+
+### Persistent tablet setup
+
+For an always-available tablet daemon, follow the
+[deployment guide](https://lambdasistemi.github.io/tmux-ws/docs/deployment/):
+it includes a Home Manager `home.nix` user service, NixOS module configuration,
+and a released-package systemd user service. Keep the daemon on localhost and
+use the [Tailscale HTTPS guide](https://lambdasistemi.github.io/tmux-ws/docs/tailscale/)
+to expose it safely to a tablet.
+
+### Release verification
+
+The release pipeline now extracts the real AppImage payload, follows its
+declared entrypoint, and verifies the served root page. Darwin packaging
+includes the same SPA, validates only staged Mach-O files, and starts the
+bundle from a clean directory before publishing its archive and Homebrew
+formula.
 
 
 ## [0.5.1] (2026-07-17)
